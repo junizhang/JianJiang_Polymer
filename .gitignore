@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Large model weights and generated artifacts
+ckpts/
+pi.5922.txt
+results.md
+
+# Optional local env
+.venv/
