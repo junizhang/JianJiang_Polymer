@@ -1,0 +1,15 @@
+series,sample,BB_mol%,PABZ_mol%,i-PABZ_mol%,BPDA_mol%_vs_total_diamine,BB_SMILES,PABZ_SMILES,i-PABZ_SMILES,BPDA_SMILES
+PIa,PIa-0,0,100,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,PIb-0,0,0,100,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIa,CPIa-20,20,80,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,CPIb-20,20,0,80,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIa,CPIa-40,40,60,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,CPIb-40,40,0,60,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIa,CPIa-50,50,50,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,CPIb-50,50,0,50,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIa,CPIa-60,60,40,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,CPIb-60,60,0,40,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIa,CPIa-80,80,20,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,CPIb-80,80,0,20,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIa,PI-100,100,0,0,100,TBD,Nc1ccc(cc1)c2[nH]c3cc(N)ccc3n2,,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
+PIb,PI-100,100,0,0,100,TBD,,Nc1cccc(c1)c2[nH]c3cc(N)ccc3n2,O=C1OC(=O)c2cc(ccc12)c3ccc4C(=O)OC(=O)c4c3
