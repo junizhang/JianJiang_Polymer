@@ -16,18 +16,38 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
+import os
 import re
 import subprocess
+import sys
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import fitz
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, inchi
 import pubchempy as pcp
+
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    pass
+
+try:
+    import jsonschema  # type: ignore
+except Exception:
+    jsonschema = None
+
+try:
+    from openai import OpenAI  # type: ignore
+except Exception:
+    OpenAI = None
 
 from image_to_smiles import (
     assign_ids_to_segments,
@@ -114,16 +134,20 @@ class ImageCandidate:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Extract polyimide composition from PDF")
-    parser.add_argument("--pdf", required=True, help="Input PDF path")
-    parser.add_argument("--output", default="", help="Legacy combined JSON output path")
-    parser.add_argument("--output-dir", default="", help="Directory for per-paper outputs")
-    parser.add_argument("--paper-id", default="", help="Paper ID, defaults to PDF stem")
-    parser.add_argument("--text-output", default="", help="Optional extracted text output")
-    parser.add_argument("--images-dir", default="", help="Optional image extraction directory")
-    parser.add_argument("--cache-file", default="monomer_library.json", help="Monomer dictionary cache JSON")
+    parser = argparse.ArgumentParser(description="Extract polyimide dataset from PDF(s)")
+    src = parser.add_mutually_exclusive_group(required=True)
+    src.add_argument("--pdf", help="Single PDF path (legacy mode)")
+    src.add_argument("--input-dir", help="Directory of PDFs (batch mode)")
+
+    parser.add_argument("--raw-dir", default="data/raw", help="Per-paper raw outputs root")
+    parser.add_argument("--dataset-dir", default="data/processed/dataset_v0", help="Merged dataset output dir")
+    parser.add_argument("--schema", default="schemas/schema_v0.json", help="Path to schema_v0.json")
     parser.add_argument("--model-path", default=DEFAULT_CKPT, help="MolScribe checkpoint path")
     parser.add_argument("--device", default="cpu", choices=["cpu", "cuda"], help="OCSR device")
+    parser.add_argument("--no-llm", action="store_true", help="Skip LLM extraction (OCSR + monomer dict only)")
+    parser.add_argument("--no-ocsr", action="store_true", help="Skip MolScribe (LLM-only run)")
+    parser.add_argument("--no-validate", action="store_true", help="Skip jsonschema validation")
+    parser.add_argument("--use-legacy-pi5922", action="store_true", help="Run the deprecated PI.5922 regex pipeline")
     return parser.parse_args()
 
 
@@ -949,27 +973,17 @@ def write_polymer_csv(rows: Sequence[dict], out_path: Path) -> None:
             )
 
 
-def main() -> int:
-    args = parse_args()
+def _legacy_pi5922_main(args: argparse.Namespace) -> int:
+    """Original PI.5922-specific regex pipeline. Triggered by --use-legacy-pi5922."""
     pdf_path = Path(args.pdf).expanduser().resolve()
-    paper_id = args.paper_id or pdf_path.stem
-    if args.output_dir:
-        output_dir = Path(args.output_dir).expanduser().resolve()
-        legacy_json_path = output_dir / "polyimide_extraction.json"
-    elif args.output:
-        legacy_json_path = Path(args.output).expanduser().resolve()
-        output_dir = legacy_json_path.parent
-    else:
-        output_dir = pdf_path.parent / f"{pdf_path.stem}_outputs"
-        legacy_json_path = output_dir / "polyimide_extraction.json"
-    images_dir = Path(args.images_dir).expanduser().resolve() if args.images_dir else output_dir / "extracted_images"
+    paper_id = pdf_path.stem
+    output_dir = pdf_path.parent / f"{pdf_path.stem}_outputs"
+    legacy_json_path = output_dir / "polyimide_extraction.json"
+    images_dir = output_dir / "extracted_images"
     model_path = Path(args.model_path).expanduser().resolve()
-    cache_path = Path(args.cache_file).expanduser().resolve()
+    cache_path = Path("monomer_library.json").resolve()
 
     full_text, _page_texts = extract_pdf_text(pdf_path)
-    if args.text_output:
-        Path(args.text_output).expanduser().resolve().write_text(full_text, encoding="utf-8")
-
     entries = extract_series_entries(full_text)
     target_abbreviations = extract_target_abbreviations(entries)
     monomers = extract_monomers(full_text, target_abbreviations)
@@ -979,38 +993,751 @@ def main() -> int:
     ocsr_results = run_ocsr(candidates, monomers, predictor, output_dir / "structures_clean")
     polymer_repeat_ocsr = attempt_polymer_repeat_ocsr(candidates, predictor)
     resolve_monomer_smiles(monomers, cache)
-    payload = build_output(
-        paper_id,
-        pdf_path,
-        monomers,
-        entries,
-        candidates,
-        ocsr_results,
-        polymer_repeat_ocsr=polymer_repeat_ocsr,
-    )
-
+    payload = build_output(paper_id, pdf_path, monomers, entries, candidates, ocsr_results, polymer_repeat_ocsr)
     output_dir.mkdir(parents=True, exist_ok=True)
     legacy_json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    (output_dir / "monomer_dictionary.json").write_text(
-        json.dumps(payload["monomer_dictionary"], ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    (output_dir / "polyimide_dataset.json").write_text(
-        json.dumps(payload["polymers"], ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    write_polymer_csv(payload["polymers"], output_dir / "polyimide_dataset.csv")
-    write_jsonl(payload["polymers"], output_dir / "polyimide_dataset.jsonl")
     save_cache(cache_path, cache)
+    print(f"[legacy] saved {legacy_json_path}")
+    return 0
 
-    print(f"Saved JSON: {legacy_json_path}")
-    print(f"Saved monomer dictionary: {output_dir / 'monomer_dictionary.json'}")
-    print(f"Saved dataset JSON: {output_dir / 'polyimide_dataset.json'}")
-    print(f"Saved CSV: {output_dir / 'polyimide_dataset.csv'}")
-    print(f"Saved JSONL: {output_dir / 'polyimide_dataset.jsonl'}")
-    print(f"Polymers: {len(payload['polymers'])}")
-    print(f"Image candidates: {len(candidates)}")
-    print(f"OCSR results: {len(ocsr_results)}")
+
+# ---------------------------------------------------------------------------
+# Schema-aligned batch pipeline (data底座 v0)
+# ---------------------------------------------------------------------------
+
+LLM_SYSTEM_PROMPT = (
+    "You are a polymer-chemistry data extraction assistant. "
+    "Extract structured records from a research paper text about polyimides. "
+    "Return ONLY JSON matching the requested schema. Use null when a value is "
+    "absent. Numbers must be SI units as specified. Do not invent monomers or "
+    "samples that are not stated in the text."
+)
+
+# Compact target schema fed to the LLM (single self-contained JSON object).
+LLM_OUTPUT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["polymers", "samples", "polymer_components", "cure_profiles", "property_records"],
+    "properties": {
+        "doi": {"type": ["string", "null"]},
+        "polymers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["local_polymer_key", "polymer_class", "is_crosslinked", "is_copolymer"],
+                "properties": {
+                    "local_polymer_key": {"type": "string"},
+                    "polymer_name": {"type": ["string", "null"]},
+                    "polymer_class": {"type": "string", "enum": [
+                        "polyimide", "polyamide_imide", "polyamide", "polyester",
+                        "polyurethane", "polybenzoxazole", "other"]},
+                    "is_crosslinked": {"type": "boolean"},
+                    "is_copolymer": {"type": "boolean"},
+                    "imidization_route": {"type": ["string", "null"], "enum": [
+                        "thermal", "chemical", "mixed", "not_applicable", None]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "polymer_components": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["local_polymer_key", "monomer_abbreviation", "role", "molar_ratio"],
+                "properties": {
+                    "local_polymer_key": {"type": "string"},
+                    "monomer_abbreviation": {"type": "string"},
+                    "role": {"type": "string", "enum": [
+                        "diamine", "dianhydride", "diacid_chloride", "triacid_chloride",
+                        "diisocyanate", "diol", "diacid", "crosslinker",
+                        "chain_extender", "end_capper", "additive", "filler", "other"]},
+                    "molar_ratio": {"type": "number", "minimum": 0},
+                    "is_crosslinker": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "samples": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["local_sample_key", "local_polymer_key"],
+                "properties": {
+                    "local_sample_key": {"type": "string"},
+                    "local_polymer_key": {"type": "string"},
+                    "solvent": {"type": ["string", "null"]},
+                    "film_thickness_um": {"type": ["number", "null"]},
+                    "mw_g_per_mol": {"type": ["number", "null"]},
+                    "inherent_viscosity_dL_per_g": {"type": ["number", "null"]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "cure_profiles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["local_sample_key", "imidization_type", "segments"],
+                "properties": {
+                    "local_sample_key": {"type": "string"},
+                    "imidization_type": {"type": "string", "enum": ["thermal", "chemical", "mixed"]},
+                    "atmosphere": {"type": ["string", "null"], "enum": ["air", "N2", "vacuum", "Ar", None]},
+                    "segments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["step_order", "temp_c", "duration_min"],
+                            "properties": {
+                                "step_order": {"type": "integer"},
+                                "temp_c": {"type": "number"},
+                                "duration_min": {"type": "number"},
+                                "ramp_rate_c_per_min": {"type": ["number", "null"]},
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+        "property_records": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["local_sample_key", "property_category", "property_name",
+                             "value_numeric", "unit", "test_method", "value_raw"],
+                "properties": {
+                    "local_sample_key": {"type": "string"},
+                    "property_category": {"type": "string", "enum": [
+                        "thermal", "optical", "mechanical", "electrical", "dielectric",
+                        "barrier", "chemical", "other"]},
+                    "property_name": {"type": "string", "enum": [
+                        "Tg", "Td2", "Td5", "Td10", "Tm", "CTE", "transmittance",
+                        "yellow_index", "haze", "refractive_index", "cutoff_wavelength",
+                        "tensile_strength", "modulus", "elongation_at_break",
+                        "dielectric_constant", "dissipation_factor", "water_uptake",
+                        "contact_angle", "inherent_viscosity", "other"]},
+                    "value_numeric": {"type": "number"},
+                    "unit": {"type": "string"},
+                    "value_std": {"type": ["number", "null"]},
+                    "value_raw": {"type": "string"},
+                    "test_method": {"type": "string"},
+                    "wavelength_nm": {"type": ["number", "null"]},
+                    "frequency_hz": {"type": ["number", "null"]},
+                    "temperature_c": {"type": ["number", "null"]},
+                    "temperature_range_c_min": {"type": ["number", "null"]},
+                    "temperature_range_c_max": {"type": ["number", "null"]},
+                    "decomposition_criterion": {"type": ["string", "null"], "enum": [
+                        "2_pct", "5_pct", "10_pct", "onset", None]},
+                    "tg_definition": {"type": ["string", "null"], "enum": [
+                        "dsc_inflection", "dsc_midpoint", "dma_tan_delta_peak",
+                        "dma_storage_onset", "tma_inflection", "unknown", None]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "extracted_monomers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["abbreviation", "name"],
+                "properties": {
+                    "abbreviation": {"type": "string"},
+                    "name": {"type": "string"},
+                    "monomer_class": {"type": ["string", "null"], "enum": [
+                        "dianhydride", "diamine", "diacid_chloride", "triacid_chloride",
+                        "diisocyanate", "diol", "diacid", "crosslinker", "end_capper",
+                        "modifier", "other", None]},
+                    "cas_number": {"type": ["string", "null"]},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+}
+
+
+def _llm_client():
+    if OpenAI is None:
+        raise RuntimeError("openai package not installed; run `pip install openai`")
+    api_key = os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY not set (see .env.example)")
+    return OpenAI(api_key=api_key, base_url=base_url)
+
+
+def llm_extract_paper(text: str, model: Optional[str] = None, max_chars: int = 80000) -> Dict[str, Any]:
+    """One LLM call per paper -> nested extraction (samples, polymers, props, cure)."""
+    client = _llm_client()
+    model = model or os.getenv("MODEL_NAME", os.getenv("LLM_MODEL", "gpt-4o-mini"))
+    snippet = text[:max_chars]
+    user_prompt = (
+        "Paper text follows between <PAPER> tags. Extract every measured polymer "
+        "sample with composition, cure profile, and reported properties.\n\n"
+        f"Required output JSON schema:\n{json.dumps(LLM_OUTPUT_SCHEMA, ensure_ascii=False)}\n\n"
+        "Conventions:\n"
+        "- local_polymer_key / local_sample_key: short stable string per paper "
+        "  (e.g. the sample label printed in the paper, like 'CPI-20').\n"
+        "- molar_ratio: a fraction (0-1) or relative integer; whatever the paper uses, "
+        "  but be consistent within a polymer.\n"
+        "- For Tg report tg_definition; for Td report decomposition_criterion; "
+        "  for transmittance report wavelength_nm.\n"
+        "- value_raw: the exact substring as printed (e.g. '305 °C').\n"
+        "- Skip nanocomposite filler entries unless the polymer matrix is the focus.\n"
+        f"<PAPER>\n{snippet}\n</PAPER>"
+    )
+    last_err: Optional[Exception] = None
+    for attempt in range(3):
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": LLM_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0,
+            )
+            content = resp.choices[0].message.content or "{}"
+            return json.loads(content)
+        except Exception as exc:
+            last_err = exc
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"LLM extraction failed after 3 attempts: {last_err}")
+
+
+def slugify(name: str) -> str:
+    s = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_").lower()
+    return s[:80] or "paper"
+
+
+def safe_inchikey(smiles: str) -> str:
+    if not smiles:
+        return ""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return ""
+    try:
+        return inchi.MolToInchiKey(mol)
+    except Exception:
+        return ""
+
+
+def detect_fluorine(smiles: str) -> Optional[bool]:
+    if not smiles:
+        return None
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+    return any(atom.GetAtomicNum() == 9 for atom in mol.GetAtoms())
+
+
+def infer_functionality(smiles: str, role: str) -> int:
+    """Guess functional-group count from SMILES, fall back to 2."""
+    if not smiles:
+        return 2
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return 2
+    if role in ("dianhydride",):
+        sm = Chem.MolFromSmarts("O=C1OC(=O)[#6]~[#6]1")
+        return max(2, len(mol.GetSubstructMatches(sm)))
+    if role in ("diamine",):
+        sm = Chem.MolFromSmarts("[NX3H2]")
+        return max(2, len(mol.GetSubstructMatches(sm)))
+    if role in ("crosslinker",):
+        return 3
+    return 2
+
+
+def infer_functional_groups(smiles: str) -> List[str]:
+    if not smiles:
+        return []
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return []
+    groups: List[str] = []
+    checks = [
+        ("anhydride", "O=C1OC(=O)[#6]~[#6]1"),
+        ("amine", "[NX3H2]"),
+        ("hydroxyl", "[OX2H]"),
+        ("carboxyl", "C(=O)[OX2H1]"),
+        ("acid_chloride", "C(=O)Cl"),
+        ("isocyanate", "N=C=O"),
+        ("alkene", "C=C"),
+        ("alkyne", "C#C"),
+        ("epoxy", "C1OC1"),
+    ]
+    for name, smarts in checks:
+        sm = Chem.MolFromSmarts(smarts)
+        if sm is not None and mol.GetSubstructMatches(sm):
+            groups.append(name)
+    return groups
+
+
+class IdAllocator:
+    def __init__(self, prefix: str, start: int = 1):
+        self.prefix = prefix
+        self._n = start
+
+    def next(self) -> str:
+        sid = f"{self.prefix}_{self._n:06d}"
+        self._n += 1
+        return sid
+
+
+def composition_hash(components: List[Dict[str, Any]]) -> str:
+    key = json.dumps(
+        sorted(
+            (c.get("monomer_id", ""), c.get("role", ""), float(c.get("molar_ratio", 0) or 0))
+            for c in components
+        )
+    )
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
+
+
+def process_one_pdf(
+    pdf_path: Path,
+    raw_dir: Path,
+    predictor,
+    use_llm: bool,
+    use_ocsr: bool,
+) -> Dict[str, Any]:
+    """Run one PDF; emit per-paper JSON bundle into raw_dir/<slug>/."""
+    slug = slugify(pdf_path.stem)
+    paper_dir = raw_dir / slug
+    paper_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[paper] {pdf_path.name} -> {paper_dir}")
+
+    full_text, _pages = extract_pdf_text(pdf_path)
+    (paper_dir / "text.txt").write_text(full_text, encoding="utf-8")
+
+    # 1. OCSR over candidate images -> abbreviation: smiles map
+    ocsr_monomers: Dict[str, Dict[str, Any]] = {}
+    if use_ocsr and predictor is not None:
+        images_dir = paper_dir / "images"
+        candidates = extract_image_candidates(pdf_path, images_dir)
+        # Use empty monomers dict so OCSR runs without the legacy abbr-binding heuristic.
+        ocsr_results = run_ocsr(candidates, {}, predictor, paper_dir / "structures_clean")
+        for r in ocsr_results:
+            if r.smiles and r.matched_abbreviation:
+                ocsr_monomers.setdefault(
+                    r.matched_abbreviation,
+                    {
+                        "smiles": r.smiles,
+                        "confidence": r.confidence,
+                        "source": f"{r.provider}:{Path(r.image).name}#{r.segment_id}",
+                    },
+                )
+        (paper_dir / "ocsr_results.json").write_text(
+            json.dumps([asdict(r) for r in ocsr_results], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    # 2. LLM extraction
+    llm_payload: Dict[str, Any] = {
+        "polymers": [], "polymer_components": [], "samples": [],
+        "cure_profiles": [], "property_records": [], "extracted_monomers": [],
+    }
+    llm_error: Optional[str] = None
+    if use_llm:
+        try:
+            llm_payload = llm_extract_paper(full_text)
+        except Exception as exc:
+            llm_error = str(exc)
+            print(f"[WARN] LLM failed for {pdf_path.name}: {exc}", file=sys.stderr)
+        (paper_dir / "llm_raw.json").write_text(
+            json.dumps(llm_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    return {
+        "paper_id": slug,
+        "source_pdf": str(pdf_path),
+        "ocsr_monomers": ocsr_monomers,
+        "llm": llm_payload,
+        "llm_error": llm_error,
+    }
+
+
+REGEX_TG = re.compile(r"\bT[g]\s*[=:]\s*(\d{2,3})\s*°?C", re.I)
+REGEX_TD = re.compile(r"\bT(?:d|d5%?|d10%?|5%?|10%?)\s*[=:]\s*(\d{2,4})\s*°?C", re.I)
+REGEX_CTE = re.compile(r"\bCTE\s*[=:]\s*(\d+(?:\.\d+)?)\s*(?:ppm|10−6|10\^-6)", re.I)
+REGEX_T550 = re.compile(r"(\d{2}(?:\.\d+)?)\s*%[^.]{0,40}550\s*nm", re.I)
+
+
+def regex_sanity_check(text: str) -> Dict[str, List[float]]:
+    """Pull obvious numeric signals as ground-truth for cross-check with LLM."""
+    return {
+        "Tg": [float(m.group(1)) for m in REGEX_TG.finditer(text)],
+        "Td": [float(m.group(1)) for m in REGEX_TD.finditer(text)],
+        "CTE": [float(m.group(1)) for m in REGEX_CTE.finditer(text)],
+        "T550": [float(m.group(1)) for m in REGEX_T550.finditer(text)],
+    }
+
+
+def merge_into_dataset(
+    per_paper: List[Dict[str, Any]],
+    dataset_dir: Path,
+    schema_path: Path,
+    validate: bool,
+) -> Dict[str, Any]:
+    """Merge per-paper results, allocate global IDs, dedupe monomers by InChIKey."""
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    mon_alloc = IdAllocator("MON")
+    pol_alloc = IdAllocator("POL")
+    smp_alloc = IdAllocator("SMP")
+
+    monomer_table: Dict[str, Dict[str, Any]] = {}  # inchikey -> record
+    polymer_table: List[Dict[str, Any]] = []
+    component_table: List[Dict[str, Any]] = []
+    sample_table: List[Dict[str, Any]] = []
+    cure_table: List[Dict[str, Any]] = []
+    property_table: List[Dict[str, Any]] = []
+    review_items: List[Dict[str, Any]] = []
+
+    def get_or_create_monomer(abbr: str, name: str, smiles: str, role: str,
+                              source_paper: str, ocsr_conf: str = "") -> Optional[str]:
+        ikey = safe_inchikey(smiles)
+        if ikey:
+            if ikey not in monomer_table:
+                monomer_table[ikey] = {
+                    "monomer_id": mon_alloc.next(),
+                    "canonical_smiles": Chem.MolToSmiles(Chem.MolFromSmiles(smiles), canonical=True),
+                    "inchi_key": ikey,
+                    "common_name": name or None,
+                    "abbreviation": abbr or None,
+                    "cas_number": None,
+                    "monomer_class": role if role in (
+                        "dianhydride", "diamine", "diacid_chloride", "triacid_chloride",
+                        "diisocyanate", "diol", "diacid", "crosslinker",
+                        "end_capper", "modifier") else "other",
+                    "functional_groups": infer_functional_groups(smiles),
+                    "functionality": infer_functionality(smiles, role),
+                    "contains_fluorine": detect_fluorine(smiles) or False,
+                    "mw_g_per_mol": None,
+                    "dft_features": None,
+                    "notes": f"first_seen:{source_paper}",
+                }
+                if ocsr_conf:
+                    try:
+                        if float(ocsr_conf) < 0.85:
+                            review_items.append({
+                                "kind": "low_confidence_ocsr",
+                                "paper": source_paper,
+                                "abbr": abbr,
+                                "confidence": ocsr_conf,
+                                "smiles": smiles,
+                            })
+                    except ValueError:
+                        pass
+            else:
+                rec = monomer_table[ikey]
+                if abbr and not rec.get("abbreviation"):
+                    rec["abbreviation"] = abbr
+                if name and not rec.get("common_name"):
+                    rec["common_name"] = name
+            return monomer_table[ikey]["monomer_id"]
+        # No SMILES: still create a stub keyed by abbr+name so polymer_components can ref it.
+        stub_key = f"STUB::{source_paper}::{abbr}::{name}"
+        if stub_key not in monomer_table:
+            monomer_table[stub_key] = {
+                "monomer_id": mon_alloc.next(),
+                "canonical_smiles": "",
+                "inchi_key": "",
+                "common_name": name or None,
+                "abbreviation": abbr or None,
+                "cas_number": None,
+                "monomer_class": role if role in (
+                    "dianhydride", "diamine", "crosslinker") else "other",
+                "functional_groups": [],
+                "functionality": 2,
+                "contains_fluorine": False,
+                "mw_g_per_mol": None,
+                "dft_features": None,
+                "notes": f"stub_no_smiles:{source_paper}",
+            }
+            review_items.append({
+                "kind": "missing_smiles",
+                "paper": source_paper,
+                "abbr": abbr,
+                "name": name,
+            })
+        return monomer_table[stub_key]["monomer_id"]
+
+    for paper in per_paper:
+        paper_id = paper["paper_id"]
+        ocsr_map = paper.get("ocsr_monomers", {})
+        llm = paper.get("llm", {}) or {}
+
+        # Step A: register monomers (LLM-extracted ∪ OCSR-discovered).
+        abbr_to_monomer_id: Dict[str, str] = {}
+        # Prefer LLM monomer list (has names/classes); enrich with OCSR SMILES.
+        llm_mons = llm.get("extracted_monomers", []) or []
+        for m in llm_mons:
+            abbr = m.get("abbreviation", "")
+            name = m.get("name", "")
+            mclass = m.get("monomer_class") or ""
+            ocsr_entry = ocsr_map.get(abbr, {})
+            smiles = ocsr_entry.get("smiles", "")
+            mid = get_or_create_monomer(
+                abbr, name, smiles, mclass, paper_id,
+                ocsr_conf=ocsr_entry.get("confidence", ""),
+            )
+            if mid:
+                abbr_to_monomer_id[abbr] = mid
+        # Register OCSR-only monomers (LLM may have missed them).
+        for abbr, ocsr_entry in ocsr_map.items():
+            if abbr in abbr_to_monomer_id:
+                continue
+            mid = get_or_create_monomer(
+                abbr, "", ocsr_entry["smiles"], "other", paper_id,
+                ocsr_conf=ocsr_entry.get("confidence", ""),
+            )
+            if mid:
+                abbr_to_monomer_id[abbr] = mid
+
+        # Step B: polymers + components
+        local_pol_to_id: Dict[str, str] = {}
+        for pol in llm.get("polymers", []) or []:
+            local_key = pol.get("local_polymer_key")
+            if not local_key:
+                continue
+            pid = pol_alloc.next()
+            local_pol_to_id[local_key] = pid
+            polymer_table.append({
+                "polymer_id": pid,
+                "polymer_name": pol.get("polymer_name"),
+                "polymer_class": pol.get("polymer_class", "polyimide"),
+                "is_crosslinked": bool(pol.get("is_crosslinked", False)),
+                "is_copolymer": bool(pol.get("is_copolymer", False)),
+                "imidization_route": pol.get("imidization_route"),
+                "bigsmiles": None,
+                "composition_hash": "",  # filled below
+                "source_type": "literature",
+                "source_doi": llm.get("doi"),
+            })
+
+        components_for_pol: Dict[str, List[Dict[str, Any]]] = {}
+        for comp in llm.get("polymer_components", []) or []:
+            local_key = comp.get("local_polymer_key")
+            pid = local_pol_to_id.get(local_key)
+            if not pid:
+                continue
+            abbr = comp.get("monomer_abbreviation", "")
+            mid = abbr_to_monomer_id.get(abbr)
+            if not mid:
+                # Register stub on the fly (no SMILES yet).
+                mid = get_or_create_monomer(abbr, "", "", comp.get("role", "other"), paper_id)
+                abbr_to_monomer_id[abbr] = mid
+            entry = {
+                "polymer_id": pid,
+                "monomer_id": mid,
+                "role": comp.get("role", "other"),
+                "molar_ratio": float(comp.get("molar_ratio", 0) or 0),
+                "weight_ratio": None,
+                "is_crosslinker": bool(comp.get("is_crosslinker", False)),
+                "notes": "",
+            }
+            component_table.append(entry)
+            components_for_pol.setdefault(pid, []).append(entry)
+
+        for pol_rec in polymer_table:
+            if pol_rec["polymer_id"] in components_for_pol and not pol_rec["composition_hash"]:
+                pol_rec["composition_hash"] = composition_hash(components_for_pol[pol_rec["polymer_id"]])
+
+        # Step C: samples + cure + properties
+        local_smp_to_id: Dict[str, str] = {}
+        for smp in llm.get("samples", []) or []:
+            local_key = smp.get("local_sample_key")
+            local_pol = smp.get("local_polymer_key")
+            pid = local_pol_to_id.get(local_pol)
+            if not pid:
+                continue
+            sid = smp_alloc.next()
+            local_smp_to_id[local_key] = sid
+            sample_table.append({
+                "sample_id": sid,
+                "polymer_id": pid,
+                "source_type": "literature",
+                "source_doi": llm.get("doi"),
+                "source_table": None,
+                "wet_lab_batch_id": None,
+                "synthesis_date": None,
+                "solvent": smp.get("solvent"),
+                "solid_content_wt_pct": None,
+                "film_thickness_um": smp.get("film_thickness_um"),
+                "film_thickness_um_std": None,
+                "mn_g_per_mol": None,
+                "mw_g_per_mol": smp.get("mw_g_per_mol"),
+                "pdi": None,
+                "mw_test_method": None,
+                "inherent_viscosity_dL_per_g": smp.get("inherent_viscosity_dL_per_g"),
+                "crosslink_density_mol_per_cm3": None,
+                "is_crosslink_density_calculated": False,
+                "paper_id": paper_id,
+            })
+
+        for cure in llm.get("cure_profiles", []) or []:
+            local_key = cure.get("local_sample_key")
+            sid = local_smp_to_id.get(local_key)
+            if not sid:
+                continue
+            cure_table.append({
+                "curve_id": f"CURE_{len(cure_table)+1:06d}",
+                "sample_id": sid,
+                "imidization_type": cure.get("imidization_type", "thermal"),
+                "atmosphere": cure.get("atmosphere") or "N2",
+                "segments": cure.get("segments", []),
+            })
+
+        # Cross-check property values vs regex
+        regex_signals = regex_sanity_check(paper.get("llm", {}).get("__text", "") or "")
+        for prop in llm.get("property_records", []) or []:
+            local_key = prop.get("local_sample_key")
+            sid = local_smp_to_id.get(local_key)
+            if not sid:
+                continue
+            rec = {
+                "record_id": f"PRP_{len(property_table)+1:06d}",
+                "sample_id": sid,
+                "property_category": prop.get("property_category", "other"),
+                "property_name": prop.get("property_name", "other"),
+                "value_numeric": prop.get("value_numeric"),
+                "unit": prop.get("unit", ""),
+                "value_std": prop.get("value_std"),
+                "value_raw": prop.get("value_raw", ""),
+                "test_method": prop.get("test_method", "unknown"),
+                "test_standard": None,
+                "temperature_c": prop.get("temperature_c"),
+                "temperature_range_c_min": prop.get("temperature_range_c_min"),
+                "temperature_range_c_max": prop.get("temperature_range_c_max"),
+                "frequency_hz": prop.get("frequency_hz"),
+                "wavelength_nm": prop.get("wavelength_nm"),
+                "heating_rate_c_per_min": None,
+                "atmosphere": None,
+                "humidity_pct": None,
+                "decomposition_criterion": prop.get("decomposition_criterion"),
+                "tg_definition": prop.get("tg_definition"),
+                "extraction_method": "llm_extracted",
+                "confidence": 0.7,
+            }
+            property_table.append(rec)
+
+    # Strip helper paper_id field before validating sample table (not in schema).
+    sample_table_out = [{k: v for k, v in s.items() if k != "paper_id"} for s in sample_table]
+
+    out_files = {
+        "monomer.json": list(monomer_table.values()),
+        "polymer.json": polymer_table,
+        "polymer_component.json": component_table,
+        "sample.json": sample_table_out,
+        "cure_profile.json": cure_table,
+        "property_record.json": property_table,
+    }
+    for fname, payload in out_files.items():
+        (dataset_dir / fname).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    # Review queue
+    for prop in property_table:
+        if prop.get("confidence", 1) < 0.7:
+            review_items.append({"kind": "low_confidence_property", **prop})
+    review_lines = ["# Review Queue\n"]
+    review_lines.append(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    review_lines.append(f"Total items: {len(review_items)}\n\n")
+    for item in review_items:
+        review_lines.append(f"- **{item.get('kind')}**: {json.dumps({k: v for k, v in item.items() if k != 'kind'}, ensure_ascii=False)}")
+    (dataset_dir / "review_queue.md").write_text("\n".join(review_lines), encoding="utf-8")
+
+    # Stats README
+    stats = {fname: len(payload) for fname, payload in out_files.items()}
+    stats["papers"] = len(per_paper)
+    readme = [
+        "# dataset_v0",
+        "",
+        f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        "## Counts",
+        "",
+    ] + [f"- {k}: {v}" for k, v in stats.items()]
+    (dataset_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
+
+    # Validation
+    validation_report: Dict[str, Any] = {}
+    if validate and jsonschema is not None:
+        try:
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            for fname, defname in [
+                ("monomer.json", "monomer"),
+                ("polymer.json", "polymer"),
+                ("polymer_component.json", "polymer_component"),
+                ("sample.json", "sample"),
+                ("cure_profile.json", "cure_profile"),
+                ("property_record.json", "property_record"),
+            ]:
+                payload = out_files[fname]
+                errors: List[str] = []
+                for rec in payload:
+                    try:
+                        jsonschema.validate(rec, schema["definitions"][defname])
+                    except jsonschema.ValidationError as ve:
+                        errors.append(f"{rec.get('monomer_id') or rec.get('polymer_id') or rec.get('sample_id') or rec.get('record_id') or '?'}: {ve.message}")
+                validation_report[fname] = {"errors": errors[:20], "ok": len(payload) - len(errors), "total": len(payload)}
+        except Exception as exc:
+            validation_report["_fatal"] = str(exc)
+        (dataset_dir / "validation_report.json").write_text(
+            json.dumps(validation_report, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    return {"stats": stats, "validation": validation_report, "review_count": len(review_items)}
+
+
+def main() -> int:
+    args = parse_args()
+
+    if args.use_legacy_pi5922:
+        if not args.pdf:
+            print("[ERROR] --use-legacy-pi5922 requires --pdf", file=sys.stderr)
+            return 2
+        return _legacy_pi5922_main(args)
+
+    raw_dir = Path(args.raw_dir).resolve()
+    dataset_dir = Path(args.dataset_dir).resolve()
+    schema_path = Path(args.schema).resolve()
+    model_path = Path(args.model_path).expanduser().resolve()
+
+    pdfs: List[Path]
+    if args.input_dir:
+        pdfs = sorted(Path(args.input_dir).resolve().glob("*.pdf"))
+    else:
+        pdfs = [Path(args.pdf).resolve()]
+    if not pdfs:
+        print(f"[ERROR] no PDFs found", file=sys.stderr)
+        return 2
+
+    predictor = None
+    if not args.no_ocsr:
+        predictor = init_predictor(model_path, args.device)
+        if predictor is None:
+            print(f"[WARN] MolScribe unavailable (no checkpoint at {model_path}); continuing without OCSR", file=sys.stderr)
+
+    per_paper: List[Dict[str, Any]] = []
+    for pdf in pdfs:
+        try:
+            result = process_one_pdf(
+                pdf, raw_dir, predictor,
+                use_llm=not args.no_llm,
+                use_ocsr=not args.no_ocsr,
+            )
+            per_paper.append(result)
+        except Exception as exc:
+            print(f"[FAIL] {pdf.name}: {exc}", file=sys.stderr)
+
+    summary = merge_into_dataset(per_paper, dataset_dir, schema_path, validate=not args.no_validate)
+    print("\n=== Dataset v0 ===")
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
 

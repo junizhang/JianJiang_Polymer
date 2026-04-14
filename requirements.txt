@@ -2,3 +2,8 @@ molscribe==1.1.1
 rdkit-pypi>=2022.9.5
 numpy<2
 opencv-python<4.12
+openai>=1.40.0
+jsonschema>=4.0.0
+pubchempy>=1.0.4
+PyMuPDF>=1.23.0
+python-dotenv>=1.0.0

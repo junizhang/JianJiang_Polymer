@@ -9,6 +9,7 @@ ckpts/
 .venv/
 .env
 .env.*
+!.env.example
 
 # Pipeline artifacts (transient)
 debug_images/

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import sys
 import tempfile
 import warnings
@@ -26,6 +27,29 @@ from rdkit import Chem
 
 ALLOWED_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 DEFAULT_CKPT = "ckpts/swin_base_char_aux_1m680k.pth"
+
+
+def _resolve_tmp_dir() -> Optional[str]:
+    """Pick a writable scratch dir; falls back to system /tmp.
+
+    Priority: env OCSR_TMP_DIR > project-local ./tmp > None (system default).
+    Set OCSR_TMP_DIR if /tmp is read-only (e.g. sandboxed sessions where the
+    previous scheme1 run hit Errno 13).
+    """
+    env_dir = os.getenv("OCSR_TMP_DIR")
+    if env_dir:
+        Path(env_dir).mkdir(parents=True, exist_ok=True)
+        return env_dir
+    return None
+
+
+def _make_tempfile(prefix: str, suffix: str) -> Path:
+    tmp = tempfile.NamedTemporaryFile(
+        prefix=prefix, suffix=suffix, delete=False, dir=_resolve_tmp_dir()
+    )
+    path = Path(tmp.name)
+    tmp.close()
+    return path
 
 # Silence known non-critical torch warnings in inference mode.
 warnings.filterwarnings("ignore", message="torch.meshgrid: in an upcoming release")
@@ -130,9 +154,7 @@ def preprocess_image(src: Path) -> Path:
 
     bw = cv2.copyMakeBorder(bw, 12, 12, 12, 12, cv2.BORDER_CONSTANT, value=255)
 
-    tmp = tempfile.NamedTemporaryFile(prefix="ocsr_", suffix=".png", delete=False)
-    tmp_path = Path(tmp.name)
-    tmp.close()
+    tmp_path = _make_tempfile(prefix="ocsr_", suffix=".png")
     if not cv2.imwrite(str(tmp_path), bw):
         raise RuntimeError(f"Failed to write temporary image: {tmp_path}")
     return tmp_path
@@ -208,9 +230,7 @@ def segment_molecule_crops(
         y1 = min(h, y + bh_box + padding)
         crop = img[y0:y1, x0:x1]
 
-        tmp = tempfile.NamedTemporaryFile(prefix=f"mol_{idx}_", suffix=".png", delete=False)
-        tmp_path = Path(tmp.name)
-        tmp.close()
+        tmp_path = _make_tempfile(prefix=f"mol_{idx}_", suffix=".png")
         if not cv2.imwrite(str(tmp_path), crop):
             raise RuntimeError(f"Failed to write segmented crop: {tmp_path}")
         crops.append((f"mol{idx}", tmp_path, (x0, y0, x1, y1)))
@@ -259,9 +279,7 @@ def segment_scheme_molecule_crops(
         # Crop the top-right reactant band to isolate the right-side dianhydride.
         if cy <= 0.30 and cx >= 0.65 and width_ratio >= 0.45:
             crop = img[y0:y1, x0 + int(bw * 0.38):x1]
-            tmp = tempfile.NamedTemporaryFile(prefix=f"{seg_id}_right_", suffix=".png", delete=False)
-            tmp_path = Path(tmp.name)
-            tmp.close()
+            tmp_path = _make_tempfile(prefix=f"{seg_id}_right_", suffix=".png")
             if cv2.imwrite(str(tmp_path), crop):
                 seg_path.unlink(missing_ok=True)
                 x0 = x0 + int(bw * 0.38)
@@ -316,9 +334,7 @@ def isolate_primary_structure(
         crop = img[y0:y1, x0:x1]
         bbox = (x0, y0, x1, y1)
 
-    tmp = tempfile.NamedTemporaryFile(prefix="clean_crop_", suffix=".png", delete=False)
-    tmp_path = Path(tmp.name)
-    tmp.close()
+    tmp_path = _make_tempfile(prefix="clean_crop_", suffix=".png")
     if not cv2.imwrite(str(tmp_path), crop):
         raise RuntimeError(f"Failed to write crop: {tmp_path}")
     return tmp_path, bbox
@@ -360,9 +376,7 @@ def clean_structure_image(image_path: Path) -> Path:
     cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2)))
     out = 255 - cleaned
 
-    tmp = tempfile.NamedTemporaryFile(prefix="cleaned_struct_", suffix=".png", delete=False)
-    tmp_path = Path(tmp.name)
-    tmp.close()
+    tmp_path = _make_tempfile(prefix="cleaned_struct_", suffix=".png")
     if not cv2.imwrite(str(tmp_path), out):
         raise RuntimeError(f"Failed to write cleaned image: {tmp_path}")
     return tmp_path
