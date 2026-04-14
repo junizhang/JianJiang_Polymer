@@ -16,9 +16,10 @@ import sys
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Tuple, Optional
 
 import cv2
+import numpy as np
 import torch
 from molscribe import MolScribe
 from rdkit import Chem
@@ -29,6 +30,35 @@ DEFAULT_CKPT = "ckpts/swin_base_char_aux_1m680k.pth"
 # Silence known non-critical torch warnings in inference mode.
 warnings.filterwarnings("ignore", message="torch.meshgrid: in an upcoming release")
 warnings.filterwarnings("ignore", message="None of the inputs have requires_grad=True")
+
+
+def patch_molscribe_for_sandbox() -> None:
+    """
+    MolScribe uses multiprocessing in graph->SMILES conversion.
+    In this sandbox, multiprocessing.SemLock may fail with PermissionError.
+    Patch the conversion path to run serially.
+    """
+    import molscribe.chemistry as chemistry
+    import molscribe.interface as interface
+
+    if getattr(chemistry, "_codex_serial_patch", False):
+        return
+
+    worker = chemistry._convert_graph_to_smiles
+
+    def convert_graph_to_smiles_serial(coords, symbols, edges, images=None, num_workers=16):
+        if images is None:
+            results = [worker(c, s, e) for c, s, e in zip(coords, symbols, edges)]
+        else:
+            results = [worker(c, s, e, i) for c, s, e, i in zip(coords, symbols, edges, images)]
+        if not results:
+            return [], [], 0.0
+        smiles_list, molblock_list, success = zip(*results)
+        return smiles_list, molblock_list, float(np.mean(success))
+
+    chemistry.convert_graph_to_smiles = convert_graph_to_smiles_serial
+    interface.convert_graph_to_smiles = convert_graph_to_smiles_serial
+    chemistry._codex_serial_patch = True
 
 
 def parse_args() -> argparse.Namespace:
@@ -188,6 +218,156 @@ def segment_molecule_crops(
     return crops
 
 
+def segment_scheme_molecule_crops(
+    image_path: Path,
+    padding: int = 16,
+    min_area_ratio: float = 0.008,
+) -> List[Tuple[str, Path, Tuple[int, int, int, int]]]:
+    """
+    Scheme-focused segmentation.
+    Prefer moderate-size structural panels and drop very wide reaction/product bands.
+    """
+    segments = segment_molecule_crops(
+        image_path,
+        padding=padding,
+        min_area_ratio=min_area_ratio,
+    )
+    img = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    if img is None:
+        return segments
+
+    h, w = img.shape[:2]
+    filtered: List[Tuple[str, Path, Tuple[int, int, int, int]]] = []
+    for seg_id, seg_path, (x0, y0, x1, y1) in segments:
+        bw = max(1, x1 - x0)
+        bh = max(1, y1 - y0)
+        width_ratio = bw / w
+        height_ratio = bh / h
+        area_ratio = (bw * bh) / float(w * h)
+        cx = (x0 + x1) / 2.0 / w
+        cy = (y0 + y1) / 2.0 / h
+
+        # Keep likely monomer panels, drop full-width polymer/product bands.
+        if width_ratio > 0.75 and area_ratio > 0.12:
+            continue
+        # Drop tiny central placeholders such as generic "Ar" fragments.
+        if area_ratio < 0.05 and 0.35 <= cx <= 0.65:
+            continue
+        # Drop middle text-only reaction annotations such as "PAAs / Thermal imidization".
+        if 0.38 <= cy <= 0.72 and width_ratio <= 0.35 and height_ratio <= 0.25:
+            continue
+        # Crop the top-right reactant band to isolate the right-side dianhydride.
+        if cy <= 0.30 and cx >= 0.65 and width_ratio >= 0.45:
+            crop = img[y0:y1, x0 + int(bw * 0.38):x1]
+            tmp = tempfile.NamedTemporaryFile(prefix=f"{seg_id}_right_", suffix=".png", delete=False)
+            tmp_path = Path(tmp.name)
+            tmp.close()
+            if cv2.imwrite(str(tmp_path), crop):
+                seg_path.unlink(missing_ok=True)
+                x0 = x0 + int(bw * 0.38)
+                bw = max(1, x1 - x0)
+                width_ratio = bw / w
+                filtered.append((seg_id, tmp_path, (x0, y0, x1, y1)))
+                continue
+        # Prefer bounded, structure-sized crops.
+        if width_ratio <= 0.6 and height_ratio <= 0.28:
+            filtered.append((seg_id, seg_path, (x0, y0, x1, y1)))
+
+    return filtered or segments
+
+
+def isolate_primary_structure(
+    image_path: Path,
+    padding: int = 12,
+) -> Tuple[Path, Tuple[int, int, int, int]]:
+    """
+    Tighten one segmented crop around the dominant chemical graph and remove
+    detached labels or reaction annotations.
+    """
+    img = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError(f"Cannot read image: {image_path}")
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, th = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    fg = 255 - th if th.mean() > 127 else th
+
+    merge_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (17, 7))
+    merged = cv2.dilate((fg > 0).astype("uint8") * 255, merge_kernel, iterations=1)
+    n_labels, _labels, stats, _centroids = cv2.connectedComponentsWithStats((merged > 0).astype("uint8"), 8)
+
+    best: Optional[Tuple[int, int, int, int, int]] = None
+    for i in range(1, n_labels):
+        x, y, w, h, area = stats[i]
+        if area < 400:
+            continue
+        if best is None or area > best[4]:
+            best = (x, y, w, h, area)
+
+    if best is None:
+        crop = img
+        bbox = (0, 0, img.shape[1], img.shape[0])
+    else:
+        x, y, w, h, _area = best
+        x0 = max(0, x - padding)
+        y0 = max(0, y - padding)
+        x1 = min(img.shape[1], x + w + padding)
+        y1 = min(img.shape[0], y + h + padding)
+        crop = img[y0:y1, x0:x1]
+        bbox = (x0, y0, x1, y1)
+
+    tmp = tempfile.NamedTemporaryFile(prefix="clean_crop_", suffix=".png", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    if not cv2.imwrite(str(tmp_path), crop):
+        raise RuntimeError(f"Failed to write crop: {tmp_path}")
+    return tmp_path, bbox
+
+
+def clean_structure_image(image_path: Path) -> Path:
+    """
+    Convert a structure crop into a high-contrast image with small detached
+    text artifacts removed while preserving atom labels connected to bonds.
+    """
+    gray = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+    if gray is None:
+        raise ValueError(f"Cannot read image: {image_path}")
+
+    denoised = cv2.GaussianBlur(gray, (3, 3), 0)
+    _, th = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    fg = 255 - th if th.mean() > 127 else th
+
+    # Remove tiny detached specks while preserving chemical text connected to bonds.
+    n_labels, labels, stats, _centroids = cv2.connectedComponentsWithStats((fg > 0).astype("uint8"), 8)
+    cleaned = np.zeros_like(fg)
+    h_img, w_img = fg.shape[:2]
+    for i in range(1, n_labels):
+        x, y, w, h, area = stats[i]
+        cx = (x + w / 2.0) / w_img
+        cy = (y + h / 2.0) / h_img
+        if area < 12:
+            continue
+        if area < 60 and w < 6 and h < 6:
+            continue
+        # Remove detached bottom labels such as BB / BPDA / PABZ.
+        if cy > 0.78 and area > 120:
+            continue
+        # Remove small left-edge stoichiometry annotations such as m / (m+n).
+        if cx < 0.10 and area < 800:
+            continue
+        cleaned[labels == i] = 255
+
+    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2)))
+    out = 255 - cleaned
+
+    tmp = tempfile.NamedTemporaryFile(prefix="cleaned_struct_", suffix=".png", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    if not cv2.imwrite(str(tmp_path), out):
+        raise RuntimeError(f"Failed to write cleaned image: {tmp_path}")
+    return tmp_path
+
+
 def assign_ids_to_segments(
     segments: List[Tuple[str, Path, Tuple[int, int, int, int]]],
     manual_ids: List[str],
@@ -336,6 +516,7 @@ def main() -> int:
         return 2
 
     device = torch.device("cuda" if args.device == "cuda" and torch.cuda.is_available() else "cpu")
+    patch_molscribe_for_sandbox()
     predictor = MolScribe(str(model_path), device=device)
 
     manual_ids = [x.strip() for x in args.manual_ids.split(",") if x.strip()]

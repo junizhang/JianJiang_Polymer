@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FluoFreeCPI Database Schema",
+  "version": "0.1.0",
+  "definitions": {
+    "monomer": {
+      "type": "object",
+      "required": ["monomer_id", "canonical_smiles", "monomer_class", "functionality", "contains_fluorine"],
+      "properties": {
+        "monomer_id": { "type": "string", "pattern": "^MON_[0-9]{6}$" },
+        "canonical_smiles": { "type": "string" },
+        "inchi_key": { "type": "string" },
+        "common_name": { "type": "string" },
+        "abbreviation": { "type": "string" },
+        "cas_number": { "type": ["string", "null"] },
+        "monomer_class": {
+          "type": "string",
+          "enum": ["dianhydride", "diamine", "diacid_chloride",
+                   "triacid_chloride", "diisocyanate", "diol", "diacid",
+                   "crosslinker", "end_capper", "modifier", "other"]
+        },
+        "functional_groups": {
+          "type": "array",
+          "items": { "type": "string",
+                     "enum": ["anhydride", "amine", "acid_chloride",
+                              "isocyanate", "hydroxyl", "carboxyl",
+                              "alkene", "alkyne", "epoxy", "other"] }
+        },
+        "functionality": { "type": "integer", "minimum": 1 },
+        "contains_fluorine": { "type": "boolean" },
+        "mw_g_per_mol": { "type": "number" },
+        "dft_features": {
+          "type": ["object", "null"],
+          "properties": {
+            "homo_eV": { "type": "number" },
+            "lumo_eV": { "type": "number" },
+            "gap_eV": { "type": "number" },
+            "dipole_debye": { "type": "number" },
+            "polarizability_au": { "type": "number" },
+            "radius_of_gyration_a": { "type": "number" }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "polymer": {
+      "type": "object",
+      "required": ["polymer_id", "polymer_class", "is_crosslinked", "source_type"],
+      "properties": {
+        "polymer_id": { "type": "string", "pattern": "^POL_[0-9]{6}$" },
+        "polymer_name": { "type": ["string", "null"] },
+        "polymer_class": {
+          "type": "string",
+          "enum": ["polyimide", "polyamide_imide", "polyamide",
+                   "polyester", "polyurethane", "polybenzoxazole", "other"]
+        },
+        "is_crosslinked": { "type": "boolean" },
+        "is_copolymer": { "type": "boolean" },
+        "imidization_route": {
+          "type": ["string", "null"],
+          "enum": ["thermal", "chemical", "mixed", "not_applicable", null]
+        },
+        "bigsmiles": { "type": ["string", "null"] },
+        "composition_hash": { "type": "string" },
+        "source_type": { "type": "string", "enum": ["literature", "wet_lab", "computational"] },
+        "source_doi": { "type": ["string", "null"] }
+      }
+    },
+
+    "polymer_component": {
+      "type": "object",
+      "required": ["polymer_id", "monomer_id", "role", "molar_ratio"],
+      "properties": {
+        "polymer_id": { "type": "string" },
+        "monomer_id": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["diamine", "dianhydride", "diacid_chloride",
+                   "triacid_chloride", "diisocyanate", "diol", "diacid",
+                   "crosslinker", "chain_extender", "end_capper",
+                   "additive", "filler", "other"]
+        },
+        "molar_ratio": { "type": "number", "minimum": 0 },
+        "weight_ratio": { "type": ["number", "null"], "minimum": 0 },
+        "is_crosslinker": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "sample": {
+      "type": "object",
+      "required": ["sample_id", "polymer_id", "source_type"],
+      "properties": {
+        "sample_id": { "type": "string", "pattern": "^SMP_[0-9]{6}$" },
+        "polymer_id": { "type": "string" },
+        "source_type": { "type": "string", "enum": ["literature", "wet_lab"] },
+        "source_doi": { "type": ["string", "null"] },
+        "source_table": { "type": ["string", "null"] },
+        "wet_lab_batch_id": { "type": ["string", "null"] },
+        "synthesis_date": { "type": ["string", "null"], "format": "date" },
+        "solvent": { "type": ["string", "null"] },
+        "solid_content_wt_pct": { "type": ["number", "null"] },
+        "film_thickness_um": { "type": ["number", "null"] },
+        "film_thickness_um_std": { "type": ["number", "null"] },
+        "mn_g_per_mol": { "type": ["number", "null"] },
+        "mw_g_per_mol": { "type": ["number", "null"] },
+        "pdi": { "type": ["number", "null"] },
+        "mw_test_method": { "type": ["string", "null"] },
+        "inherent_viscosity_dL_per_g": { "type": ["number", "null"] },
+        "crosslink_density_mol_per_cm3": { "type": ["number", "null"] },
+        "is_crosslink_density_calculated": { "type": "boolean" }
+      }
+    },
+
+    "cure_profile": {
+      "type": "object",
+      "required": ["curve_id", "sample_id", "imidization_type", "segments"],
+      "properties": {
+        "curve_id": { "type": "string" },
+        "sample_id": { "type": "string" },
+        "imidization_type": { "type": "string", "enum": ["thermal", "chemical", "mixed"] },
+        "atmosphere": { "type": "string", "enum": ["air", "N2", "vacuum", "Ar"] },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["step_order", "temp_c", "duration_min"],
+            "properties": {
+              "step_order": { "type": "integer" },
+              "temp_c": { "type": "number" },
+              "duration_min": { "type": "number" },
+              "ramp_rate_c_per_min": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+
+    "property_record": {
+      "type": "object",
+      "required": ["record_id", "sample_id", "property_category",
+                   "property_name", "value_numeric", "unit",
+                   "test_method", "extraction_method", "confidence"],
+      "properties": {
+        "record_id": { "type": "string" },
+        "sample_id": { "type": "string" },
+        "property_category": {
+          "type": "string",
+          "enum": ["thermal", "optical", "mechanical", "electrical",
+                   "dielectric", "barrier", "chemical", "other"]
+        },
+        "property_name": {
+          "type": "string",
+          "enum": ["Tg", "Td2", "Td5", "Td10", "Tm", "CTE",
+                   "transmittance", "yellow_index", "haze",
+                   "refractive_index", "cutoff_wavelength",
+                   "tensile_strength", "modulus", "elongation_at_break",
+                   "dielectric_constant", "dissipation_factor",
+                   "water_uptake", "contact_angle",
+                   "inherent_viscosity", "other"]
+        },
+        "value_numeric": { "type": "number" },
+        "unit": { "type": "string" },
+        "value_std": { "type": ["number", "null"] },
+        "value_raw": { "type": "string" },
+        "test_method": { "type": "string" },
+        "test_standard": { "type": ["string", "null"] },
+        "temperature_c": { "type": ["number", "null"] },
+        "temperature_range_c_min": { "type": ["number", "null"] },
+        "temperature_range_c_max": { "type": ["number", "null"] },
+        "frequency_hz": { "type": ["number", "null"] },
+        "wavelength_nm": { "type": ["number", "null"] },
+        "heating_rate_c_per_min": { "type": ["number", "null"] },
+        "atmosphere": { "type": ["string", "null"] },
+        "humidity_pct": { "type": ["number", "null"] },
+        "decomposition_criterion": {
+          "type": ["string", "null"],
+          "enum": ["2_pct", "5_pct", "10_pct", "onset", null]
+        },
+        "tg_definition": {
+          "type": ["string", "null"],
+          "enum": ["dsc_inflection", "dsc_midpoint",
+                   "dma_tan_delta_peak", "dma_storage_onset",
+                   "tma_inflection", "unknown", null]
+        },
+        "extraction_method": {
+          "type": "string",
+          "enum": ["manual", "llm_extracted",
+                   "llm_extracted_human_verified", "wet_lab_instrument"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "scattering_record": {
+      "type": "object",
+      "required": ["scattering_id", "sample_id", "technique", "raw_image_path"],
+      "properties": {
+        "scattering_id": { "type": "string" },
+        "sample_id": { "type": "string" },
+        "technique": {
+          "type": "string",
+          "enum": ["GISAXS", "GIWAXS", "SAXS", "WAXS", "PDF", "XRR"]
+        },
+        "beamline": { "type": ["string", "null"] },
+        "wavelength_a": { "type": "number" },
+        "incidence_angle_deg": { "type": ["number", "null"] },
+        "q_range_min": { "type": "number" },
+        "q_range_max": { "type": "number" },
+        "temperature_c": { "type": ["number", "null"] },
+        "is_in_situ": { "type": "boolean" },
+        "time_series_id": { "type": ["string", "null"] },
+        "time_offset_s": { "type": ["number", "null"] },
+        "raw_image_path": { "type": "string" },
+        "processed_curve_path": { "type": ["string", "null"] },
+        "derived_features": { "type": ["object", "null"] }
+      }
+    }
+  }
+}

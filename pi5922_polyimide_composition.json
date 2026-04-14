@@ -1,0 +1,470 @@
+{
+  "paper_id": "PI.5922",
+  "source_pdf": "/home/ubuntu22/Jian Jiang-Polymer/pi.5922.pdf",
+  "monomer_dictionary": [
+    {
+      "abbreviation": "BB",
+      "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+      "role": "diamine",
+      "smiles": "",
+      "smiles_source": "",
+      "evidence": [
+        "s due to the high molecular aromatic- ity and conjugation. In this paper, fully symmetrical diamine 6,6′-bis[2-(4-aminobenzene)benzimidazole] (BB) was synthe- sized via a facile method. The bis-benzimidazole in BB with heteroaromatic rings may en"
+      ]
+    },
+    {
+      "abbreviation": "BPDA",
+      "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+      "role": "dianhydride",
+      "smiles": "",
+      "smiles_source": "",
+      "evidence": [
+        " and i-PABZ were acquired from Changzhou Sunlight Medical Raw Material Co. Ltd. (Changzhou, China). 3,3′,4,4′-Biphenyl tetracarboxylic dianhydride (BPDA) was provided by ChinaTech Chemical Co. Ltd. (Tianjin, China). Characterization For the diamine mono"
+      ]
+    },
+    {
+      "abbreviation": "PABZ",
+      "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+      "role": "diamine",
+      "smiles": "",
+      "smiles_source": "",
+      "evidence": [
+        "y due to its symmetrical structure, aromaticity and potential to form hydrogen bonding with carbonyl24,32 and sulfonyl33 functionalities. Two series of copolyimides from BB, 5-amino-2-(4-aminophenyl)benzimidazole (PABZ) and 5-amino-2-(3-aminophenyl)benzimidazole (i-PABZ), were pre- pared. The eﬀect of the conformation"
+      ]
+    },
+    {
+      "abbreviation": "i-PABZ",
+      "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+      "role": "diamine",
+      "smiles": "",
+      "smiles_source": "",
+      "evidence": [
+        "y due to its symmetrical structure, aromaticity and potential to form hydrogen bonding with carbonyl24,32 and sulfonyl33 functionalities. Two series of copolyimides from BB, 5-amino-2-(4-aminophenyl)benzimidazole (PABZ) and 5-amino-2-(3-aminophenyl)benzimidazole (i-PABZ), were pre- pared. The eﬀect of the conformation of the backbone structure and the content of bis-be"
+      ]
+    }
+  ],
+  "image_candidates": [
+    {
+      "page": 3,
+      "xref": 21,
+      "path": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "rect": [
+        55.27199935913086,
+        59.178009033203125,
+        537.2349853515625,
+        381.68402099609375
+      ],
+      "caption": "Scheme 1. Synthesis of PIs containing BB.",
+      "context": "Incorporating bis-benzimidazole to improve thermal resistance www.soci.org Scheme 1. Synthesis of PIs containing BB. of the carbonyl groups shifted to higher wavenumbers, suggest- ing that the hydrogen bonding became stronger. This is opposite to the majority of PIs containing benzimidazole, which exhibit a red-shift with the formation of hydrogen bonding.35,37 This is not a contradiction but is due to the fact that there is no fundamen- tal diﬀerence between red-shifts and blue-shifts. The formation of hydrogen bonding is followed by a concurrence of hyperconjuga- tion and rehybridization of electrons.38 These two eﬀects cause dif- ferentvibrationfrequencyshiftsofthenon-interactingspeciesand are generally applicable for all types of hydrogen bonding. From this point of view, the blue-shifts trend suggests that the hydrogen bonding is strengthened after copolymerization with BB. rigid structures. Therefore, the –d log E′/dT of PIa and PIb presents lower values than 0.3 (Table 2), suggesting loss of thermoplasticity. In addition, compared to the PIa series, the PIb series have much higher index values as shown in Fig. 3. This is because the struc- ture of i-PABZ is more distorted than that of PABZ. We also found that some of the PIs (e.g. CPIa-20, CPIa-40, CPIa-50, CPIa-60, CPIa-80, CPIb-80, PI-100) possess ultralow d log E′/dT, less than 0.008 (lower limit of this index range). This should be ascribed to the physical crosslinkscausedbyhydrogenbondingaswellastherigidityofthe polymer itself. Hydrogen bonding can eﬀectively strengthen inter- molecular interactions and hamper chain mobility. In addition, the index values decreased further from 0.0573 to 0.0036 for PIa and from 0.0650 to 0.0036 for PIb with increase in the BB content. The decreasing trend also indicates that the hydrogen bonding inter- actions were strengthened after copolymerization with BB. The Tg values of the PI ﬁlms are summarized in Table 2 and Fig. 3. When 20 mol% BB was introduced to the homopolyimides, Tg increased to 40 ∘C for PIa and 30 ∘C for PIb. This demon- strated that an eﬃcient way to improve Tg is by introducing bis-benzimidazole moieties. The rigidity and conjugation of het- erocyclic bis-benzimidazole contributes to a tight packing of poly- mer molecular chains and a stronger intermolecular 𝜋–𝜋stacking interaction. Meanwhile, the hydrogen bonding formed from N–H inthebenzimidazolemoietieswithC=Oinimideringsfurtherrein- forces the physical interaction between molecular chains, which greatlyrestrictsthemotionofpolymersegments.Asaresult,theTg of the PIs was improved after copolymerization with BB, even more than 457 ∘C. Tg is the lowest temperature over which segmental motions of the backbone can obtain enough energy to overcome",
+      "score": 9,
+      "positive_hits": [
+        "polymer",
+        "scheme",
+        "synthesis"
+      ],
+      "negative_hits": []
+    }
+  ],
+  "ocsr_results": [
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol1",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol2",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol3",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol4",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol5",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol6",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol7",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    },
+    {
+      "image": "/home/ubuntu22/Jian Jiang-Polymer/pi5922_polyimide_composition_images/page03_img01_xref21.jpeg",
+      "segment_id": "mol8",
+      "smiles": "",
+      "raw_smiles": "",
+      "confidence": "",
+      "status": "[Errno 13] Permission denied",
+      "matched_abbreviation": ""
+    }
+  ],
+  "polymers": [
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "PIa-0",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+          "abbreviation": "PABZ",
+          "smiles": "",
+          "ratio": "100"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "CPIa-20",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "20"
+        },
+        {
+          "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+          "abbreviation": "PABZ",
+          "smiles": "",
+          "ratio": "80"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "CPIa-40",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "40"
+        },
+        {
+          "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+          "abbreviation": "PABZ",
+          "smiles": "",
+          "ratio": "60"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "CPIa-50",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "50"
+        },
+        {
+          "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+          "abbreviation": "PABZ",
+          "smiles": "",
+          "ratio": "50"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "CPIa-60",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "60"
+        },
+        {
+          "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+          "abbreviation": "PABZ",
+          "smiles": "",
+          "ratio": "40"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "CPIa-80",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "80"
+        },
+        {
+          "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+          "abbreviation": "PABZ",
+          "smiles": "",
+          "ratio": "20"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIa",
+      "polymer_name": "PI-100",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "100"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "PIb-0",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+          "abbreviation": "i-PABZ",
+          "smiles": "",
+          "ratio": "100"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "CPIb-20",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "20"
+        },
+        {
+          "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+          "abbreviation": "i-PABZ",
+          "smiles": "",
+          "ratio": "80"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "CPIb-40",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "40"
+        },
+        {
+          "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+          "abbreviation": "i-PABZ",
+          "smiles": "",
+          "ratio": "60"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "CPIb-50",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "50"
+        },
+        {
+          "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+          "abbreviation": "i-PABZ",
+          "smiles": "",
+          "ratio": "50"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "CPIb-60",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "60"
+        },
+        {
+          "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+          "abbreviation": "i-PABZ",
+          "smiles": "",
+          "ratio": "40"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "CPIb-80",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "80"
+        },
+        {
+          "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+          "abbreviation": "i-PABZ",
+          "smiles": "",
+          "ratio": "20"
+        }
+      ],
+      "polyimide_smiles": ""
+    },
+    {
+      "paper_id": "PI.5922",
+      "polymer_series": "PIb",
+      "polymer_name": "PI-100",
+      "dianhydride": {
+        "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+        "abbreviation": "BPDA",
+        "smiles": ""
+      },
+      "diamines": [
+        {
+          "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+          "abbreviation": "BB",
+          "smiles": "",
+          "ratio": "100"
+        }
+      ],
+      "polyimide_smiles": ""
+    }
+  ]
+}

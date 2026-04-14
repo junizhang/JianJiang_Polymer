@@ -1,0 +1,26 @@
+{
+  "BB||6,6′-bis[2-(4-aminobenzene)benzimidazole]": {
+    "abbreviation": "BB",
+    "name": "6,6′-bis[2-(4-aminobenzene)benzimidazole]",
+    "smiles": "Nc1ccc(-c2nc3cc(-c4ccc5[nH]c(-c6ccc(N)cc6)nc5c4)ccc3[nH]2)cc1",
+    "source": "molscribe:page03_img01_xref21.jpeg#mol1"
+  },
+  "BPDA||3,3′,4,4′-biphenyl tetracarboxylic dianhydride": {
+    "abbreviation": "BPDA",
+    "name": "3,3′,4,4′-Biphenyl tetracarboxylic dianhydride",
+    "smiles": "O=C1OC(=O)c2cc(-c3ccc4c(c3)C(=O)OC4=O)ccc21",
+    "source": "molscribe:page03_img01_xref21.jpeg#mol2"
+  },
+  "PABZ||5-amino-2-(4-aminophenyl)benzimidazole": {
+    "abbreviation": "PABZ",
+    "name": "5-amino-2-(4-aminophenyl)benzimidazole",
+    "smiles": "Nc1ccc(-c2nc3cc(N)ccc3[nH]2)cc1",
+    "source": "molscribe:page03_img01_xref21.jpeg#mol8"
+  },
+  "i-PABZ||5-amino-2-(3-aminophenyl)benzimidazole": {
+    "abbreviation": "i-PABZ",
+    "name": "5-amino-2-(3-aminophenyl)benzimidazole",
+    "smiles": "Nc1cccc(-c2nc3cc(N)ccc3[nH]2)c1",
+    "source": "molscribe:page03_img01_xref21.jpeg#mol7"
+  }
+}
