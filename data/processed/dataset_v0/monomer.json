@@ -1,19 +1,17 @@
 [
   {
     "monomer_id": "MON_000001",
-    "canonical_smiles": "O=C1OC(=O)c2cc(C(c3ccc4c(c3)C(=O)OC4=O)(C(F)(F)F)C(F)(F)F)ccc21",
-    "inchi_key": "QHHKLPCQTTWFSS-UHFFFAOYSA-N",
-    "common_name": "4,4′-(hexafluoroisopropylidene)diphthalic anhydride",
+    "canonical_smiles": "O=C1Cc2cc(cc(C(F)(F)F)c2C(F)(F)F)C(=O)O1",
+    "inchi_key": "LKLRJFBDFISCLY-UHFFFAOYSA-N",
+    "common_name": "4,4'-(hexafluoroisopropylidene)diphthalic anhydride",
     "abbreviation": "6FDA",
     "cas_number": null,
     "monomer_class": "dianhydride",
-    "functional_groups": [
-      "anhydride"
-    ],
+    "functional_groups": [],
     "functionality": 2,
     "contains_fluorine": true,
     "dft_features": null,
-    "notes": "stub_no_smiles:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic;pubchem_enriched"
+    "notes": "first_seen:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"
   },
   {
     "monomer_id": "MON_000002",
@@ -22,7 +20,7 @@
     "common_name": "trimellitic anhydride chloride",
     "abbreviation": "TMC",
     "cas_number": null,
-    "monomer_class": "other",
+    "monomer_class": "diacid_chloride",
     "functional_groups": [
       "anhydride",
       "acid_chloride"
@@ -30,29 +28,29 @@
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic;pubchem_enriched"
+    "notes": "first_seen:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"
   },
   {
     "monomer_id": "MON_000003",
     "canonical_smiles": "O=C(Cl)c1ccc(C(=O)Cl)cc1",
     "inchi_key": "LXEJRKJRKIFVNY-UHFFFAOYSA-N",
-    "common_name": "terephthaloyl chloride",
+    "common_name": "terephthalic chloride",
     "abbreviation": "TCL",
     "cas_number": null,
-    "monomer_class": "other",
+    "monomer_class": "diacid_chloride",
     "functional_groups": [
       "acid_chloride"
     ],
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic;pubchem_enriched"
+    "notes": "first_seen:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"
   },
   {
     "monomer_id": "MON_000004",
-    "canonical_smiles": "Nc1ccc(-c2ccc(N)cc2C(F)(F)F)c(C(F)(F)F)c1",
-    "inchi_key": "NVKGJHAQGWCWDI-UHFFFAOYSA-N",
-    "common_name": "2,2′-bis(trifluoromethyl)-[1,1′-biphenyl]-4,4′-diamine",
+    "canonical_smiles": "Nc1ccc(C(F)(F)F)c(C(F)(F)F)c1-c1c(N)ccc(C(F)(F)F)c1C(F)(F)F",
+    "inchi_key": "PHLYGJYTUXGASW-UHFFFAOYSA-N",
+    "common_name": "2,2'-bis(trifluoromethyl)-[1,1'-biphenyl]-4,4'-diamine",
     "abbreviation": "TFMB",
     "cas_number": null,
     "monomer_class": "diamine",
@@ -62,7 +60,7 @@
     "functionality": 2,
     "contains_fluorine": true,
     "dft_features": null,
-    "notes": "stub_no_smiles:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic;pubchem_enriched"
+    "notes": "first_seen:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"
   },
   {
     "monomer_id": "MON_000005",
@@ -71,62 +69,33 @@
     "common_name": "1,3,5-benzenetricarbonyl trichloride",
     "abbreviation": "BTC",
     "cas_number": null,
-    "monomer_class": "crosslinker",
+    "monomer_class": "triacid_chloride",
     "functional_groups": [
       "acid_chloride"
     ],
-    "functionality": 3,
-    "contains_fluorine": false,
-    "dft_features": null,
-    "notes": "stub_no_smiles:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic;pubchem_enriched"
-  },
-  {
-    "monomer_id": "MON_000007",
-    "canonical_smiles": "NC(=O)CC(N)C(=O)OP(=O)(O)OCC1OC(n2cnc3c(N)ncnc32)C(O)C1O",
-    "inchi_key": "BZHVCXQAFQWXPZ-UHFFFAOYSA-N",
-    "common_name": "4,4′-dithioaniline",
-    "abbreviation": "4AD",
-    "cas_number": null,
-    "monomer_class": "diamine",
-    "functional_groups": [
-      "amine",
-      "hydroxyl"
-    ],
-    "functionality": 3,
-    "contains_fluorine": false,
-    "dft_features": null,
-    "notes": "stub_no_smiles:colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper;pubchem_enriched"
-  },
-  {
-    "monomer_id": "MON_000008",
-    "canonical_smiles": "",
-    "inchi_key": "",
-    "common_name": "4,7,10-Trioxa-1,13-tridecanediamine",
-    "abbreviation": "TTDA",
-    "cas_number": null,
-    "monomer_class": "diamine",
-    "functional_groups": [],
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper"
+    "notes": "first_seen:colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"
   },
   {
-    "monomer_id": "MON_000009",
-    "canonical_smiles": "",
-    "inchi_key": "",
+    "monomer_id": "MON_000006",
+    "canonical_smiles": "O=C1OC(=O)C2CC3CCC1C2CC1C(=O)OC(=O)C31",
+    "inchi_key": "XPLHEISJFRQJTE-UHFFFAOYSA-N",
     "common_name": "4-(2,5-dioxotetrahydrofuran-3-yl)-1,2,3,4-tetrahydro-naphthalene-1,2-dicarboxylic anhydride",
     "abbreviation": "DTDA",
     "cas_number": null,
     "monomer_class": "dianhydride",
-    "functional_groups": [],
+    "functional_groups": [
+      "anhydride"
+    ],
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
+    "notes": "first_seen:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
   },
   {
-    "monomer_id": "MON_000010",
+    "monomer_id": "MON_000007",
     "canonical_smiles": "CC(C)(c1ccc(Oc2ccc(N)cc2)cc1)c1ccc(Oc2ccc(N)cc2)cc1",
     "inchi_key": "KMKWGXGSGPYISJ-UHFFFAOYSA-N",
     "common_name": "2,2-bis[4-(4-aminophenoxy)phenyl]propane",
@@ -139,10 +108,10 @@
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na;pubchem_enriched"
+    "notes": "first_seen:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
   },
   {
-    "monomer_id": "MON_000011",
+    "monomer_id": "MON_000008",
     "canonical_smiles": "Nc1ccc(Oc2ccc(C(c3ccc(Oc4ccc(N)cc4)cc3)(C(F)(F)F)C(F)(F)F)cc2)cc1",
     "inchi_key": "HHLMWQDRYZAENA-UHFFFAOYSA-N",
     "common_name": "2,2-bis[4-(4-aminophenoxy)phenyl]hexafluoropropane",
@@ -155,13 +124,13 @@
     "functionality": 2,
     "contains_fluorine": true,
     "dft_features": null,
-    "notes": "stub_no_smiles:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na;pubchem_enriched"
+    "notes": "first_seen:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
   },
   {
-    "monomer_id": "MON_000012",
+    "monomer_id": "MON_000009",
     "canonical_smiles": "O=C1OC(=O)c2cc(-c3ccc4c(c3)C(=O)OC4=O)ccc21",
     "inchi_key": "WKDNYTOXBCRNPV-UHFFFAOYSA-N",
-    "common_name": "3,3’,4,4’-biphenyltetracarboxylic dianhydride",
+    "common_name": "3,3',4,4'-biphenyltetracarboxylic dianhydride",
     "abbreviation": "BPDA",
     "cas_number": null,
     "monomer_class": "dianhydride",
@@ -171,26 +140,44 @@
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p;pubchem_enriched"
+    "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
   },
   {
-    "monomer_id": "MON_000014",
-    "canonical_smiles": "",
-    "inchi_key": "",
-    "common_name": "4,4’-oxydianiline",
+    "monomer_id": "MON_000010",
+    "canonical_smiles": "Nc1ccc(C(F)(F)F)c(-c2ccc(N)cc2C(F)(F)F)c1",
+    "inchi_key": "NLOLFCMAGANTQA-UHFFFAOYSA-N",
+    "common_name": "2,2'-bis(trifluoromethyl)benzidine",
+    "abbreviation": "TFMB",
+    "cas_number": null,
+    "monomer_class": "diamine",
+    "functional_groups": [
+      "amine"
+    ],
+    "functionality": 2,
+    "contains_fluorine": true,
+    "dft_features": null,
+    "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
+  },
+  {
+    "monomer_id": "MON_000011",
+    "canonical_smiles": "Nc1ccc(Oc2ccc(N)cc2)cc1",
+    "inchi_key": "HLBLWEWZXPIGSM-UHFFFAOYSA-N",
+    "common_name": "4,4'-oxydianiline",
     "abbreviation": "ODA",
     "cas_number": null,
     "monomer_class": "diamine",
-    "functional_groups": [],
+    "functional_groups": [
+      "amine"
+    ],
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
+    "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
   },
   {
-    "monomer_id": "MON_000015",
-    "canonical_smiles": "c1cc(C2=NCCO2)cc(C2=NCCO2)c1",
-    "inchi_key": "HMOZDINWBHMBSQ-UHFFFAOYSA-N",
+    "monomer_id": "MON_000012",
+    "canonical_smiles": "c1cc(C2=NCOC2)cc(C2=NCOC2)c1",
+    "inchi_key": "IKXRKHFMOCTMOJ-UHFFFAOYSA-N",
     "common_name": "2,2'-(1,3-phenylene)bis(2-oxazoline)",
     "abbreviation": "1,3-PBO",
     "cas_number": null,
@@ -199,45 +186,30 @@
     "functionality": 3,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p;pubchem_enriched"
+    "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
   },
   {
-    "monomer_id": "MON_000016",
-    "canonical_smiles": "O=C1OC(=O)c2cc(Cl)ccc21",
-    "inchi_key": "BTTRMCQEPDPCPA-UHFFFAOYSA-N",
-    "common_name": "4-chlorophthalic anhydride",
-    "abbreviation": "4-chlorophthalic anhydride",
-    "cas_number": null,
-    "monomer_class": "dianhydride",
-    "functional_groups": [
-      "anhydride"
-    ],
-    "functionality": 2,
-    "contains_fluorine": false,
-    "dft_features": null,
-    "notes": "stub_no_smiles:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p;pubchem_enriched"
-  },
-  {
-    "monomer_id": "MON_000017",
-    "canonical_smiles": "O=C(c1ccc2c(c1)C(=O)OC2=O)c1ccc2c(c1)C(=O)OC2=O",
-    "inchi_key": "VQVIHDPBMFABCQ-UHFFFAOYSA-N",
+    "monomer_id": "MON_000013",
+    "canonical_smiles": "O=C1CC(C2=CC3C(=O)OC(=O)CC3C2)C(=O)O1",
+    "inchi_key": "BPAVGERXGNQCER-UHFFFAOYSA-N",
     "common_name": "bicyclo(2,2,2)oct-7-ene-2,3,5,6-tetracarboxylicdianhydride",
     "abbreviation": "BTDA",
     "cas_number": null,
     "monomer_class": "dianhydride",
     "functional_groups": [
-      "anhydride"
+      "anhydride",
+      "alkene"
     ],
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he;pubchem_enriched"
+    "notes": "first_seen:fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he"
   },
   {
-    "monomer_id": "MON_000018",
+    "monomer_id": "MON_000014",
     "canonical_smiles": "Nc1cccc(Oc2ccc(S(=O)(=O)c3ccc(Oc4cccc(N)c4)cc3)cc2)c1",
     "inchi_key": "WCXGOVYROJJXHA-UHFFFAOYSA-N",
-    "common_name": "bis[4-(3-aminophenoxy)phenyl]sulfone",
+    "common_name": "bis[4-(3-aminophenoxy)phenyl] sulfone",
     "abbreviation": "BAPS",
     "cas_number": null,
     "monomer_class": "diamine",
@@ -247,6 +219,6 @@
     "functionality": 2,
     "contains_fluorine": false,
     "dft_features": null,
-    "notes": "stub_no_smiles:fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he;pubchem_enriched"
+    "notes": "first_seen:fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he"
   }
 ]

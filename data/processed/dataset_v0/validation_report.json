@@ -1,32 +1,32 @@
 {
   "monomer.json": {
     "errors": [],
-    "ok": 16,
-    "total": 16
+    "ok": 14,
+    "total": 14
   },
   "polymer.json": {
     "errors": [],
-    "ok": 19,
-    "total": 19
+    "ok": 9,
+    "total": 9
   },
   "polymer_component.json": {
     "errors": [],
-    "ok": 61,
-    "total": 61
+    "ok": 30,
+    "total": 30
   },
   "sample.json": {
     "errors": [],
-    "ok": 29,
-    "total": 29
+    "ok": 23,
+    "total": 23
   },
   "cure_profile.json": {
     "errors": [],
-    "ok": 29,
-    "total": 29
+    "ok": 23,
+    "total": 23
   },
   "property_record.json": {
     "errors": [],
-    "ok": 245,
-    "total": 245
+    "ok": 255,
+    "total": 255
   }
 }

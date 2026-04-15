@@ -145,7 +145,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-path", default=DEFAULT_CKPT, help="MolScribe checkpoint path")
     parser.add_argument("--device", default="cpu", choices=["cpu", "cuda"], help="OCSR device")
     parser.add_argument("--no-llm", action="store_true", help="Skip LLM extraction (OCSR + monomer dict only)")
-    parser.add_argument("--no-ocsr", action="store_true", help="Skip MolScribe (LLM-only run)")
+    parser.add_argument("--no-ocsr", action="store_true", default=True,
+                        help="Skip MolScribe (default; LLM multimodal handles structure reading)")
+    parser.add_argument("--use-molscribe", dest="no_ocsr", action="store_false",
+                        help="Enable MolScribe OCSR pass alongside LLM vision")
     parser.add_argument("--no-validate", action="store_true", help="Skip jsonschema validation")
     parser.add_argument("--use-legacy-pi5922", action="store_true", help="Run the deprecated PI.5922 regex pipeline")
     return parser.parse_args()
@@ -1149,6 +1152,10 @@ LLM_OUTPUT_SCHEMA = {
                         "diisocyanate", "diol", "diacid", "crosslinker", "end_capper",
                         "modifier", "other", None]},
                     "cas_number": {"type": ["string", "null"]},
+                    "smiles": {"type": ["string", "null"]},
+                    "smiles_source": {"type": ["string", "null"], "enum": [
+                        "image_vision", "text_mention", "inferred", "unknown", None]},
+                    "source_page": {"type": ["integer", "null"]},
                 },
                 "additionalProperties": False,
             },
@@ -1167,26 +1174,81 @@ def _llm_client():
     return OpenAI(api_key=api_key, base_url=base_url)
 
 
-def llm_extract_paper(text: str, model: Optional[str] = None, max_chars: int = 80000) -> Dict[str, Any]:
-    """One LLM call per paper -> nested extraction (samples, polymers, props, cure)."""
+def _render_pdf_pages(pdf_path: Path, dpi: int = 150, max_pages: int = 12) -> List[Tuple[int, bytes]]:
+    """Render pages of a PDF to PNG bytes. Prefer pages mentioning Scheme/Fig/structure."""
+    doc = fitz.open(pdf_path)
+    try:
+        priority: List[int] = []
+        fallback: List[int] = []
+        for i in range(len(doc)):
+            txt = (doc[i].get_text("text") or "").lower()
+            if any(tok in txt for tok in ("scheme ", "fig.", "figure ", "structure")):
+                priority.append(i)
+            else:
+                fallback.append(i)
+        ordered = priority + fallback
+        picked = ordered[:max_pages]
+        picked.sort()
+        zoom = dpi / 72.0
+        mat = fitz.Matrix(zoom, zoom)
+        out: List[Tuple[int, bytes]] = []
+        for idx in picked:
+            pix = doc[idx].get_pixmap(matrix=mat, alpha=False)
+            out.append((idx + 1, pix.tobytes("png")))
+        return out
+    finally:
+        doc.close()
+
+
+def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
+                      model: Optional[str] = None, max_chars: int = 80000,
+                      max_pages: int = 12) -> Dict[str, Any]:
+    """One multimodal LLM call per paper -> nested extraction + monomer SMILES from figures."""
+    import base64
     client = _llm_client()
     model = model or os.getenv("MODEL_NAME", os.getenv("LLM_MODEL", "gpt-4o-mini"))
     snippet = text[:max_chars]
-    user_prompt = (
-        "Paper text follows between <PAPER> tags. Extract every measured polymer "
-        "sample with composition, cure profile, and reported properties.\n\n"
+    user_text = (
+        "Paper text follows between <PAPER> tags, and the selected pages are attached "
+        "as images (page numbers match the paper). Extract every measured polymer "
+        "sample with composition, cure profile, and reported properties, AND read "
+        "each monomer structure directly from the Scheme/Figure images.\n\n"
         f"Required output JSON schema:\n{json.dumps(LLM_OUTPUT_SCHEMA, ensure_ascii=False)}\n\n"
         "Conventions:\n"
+        "- extracted_monomers: include every monomer referenced by any polymer. For "
+        "  each, return canonical SMILES read from the image. Set smiles_source to "
+        "  'image_vision' when read from the figure, 'text_mention' when the paper "
+        "  prints SMILES/CAS, 'inferred' when you only know the common name, or "
+        "  'unknown' if no reliable SMILES is available. Include source_page (1-based).\n"
+        "- Use * as the polymer attachment point ONLY for repeat units; monomers "
+        "  should be neutral closed-shell molecules (e.g. the diamine itself, not its "
+        "  residue). Dianhydride SMILES should include both anhydride rings.\n"
         "- local_polymer_key / local_sample_key: short stable string per paper "
         "  (e.g. the sample label printed in the paper, like 'CPI-20').\n"
-        "- molar_ratio: a fraction (0-1) or relative integer; whatever the paper uses, "
-        "  but be consistent within a polymer.\n"
+        "- polymer_components.monomer_abbreviation must exactly match an abbreviation in "
+        "  extracted_monomers.\n"
+        "- molar_ratio: fraction (0-1) or relative integer; be consistent within a polymer.\n"
         "- For Tg report tg_definition; for Td report decomposition_criterion; "
         "  for transmittance report wavelength_nm.\n"
         "- value_raw: the exact substring as printed (e.g. '305 °C').\n"
         "- Skip nanocomposite filler entries unless the polymer matrix is the focus.\n"
         f"<PAPER>\n{snippet}\n</PAPER>"
     )
+    content: List[Dict[str, Any]] = [{"type": "text", "text": user_text}]
+    page_imgs: List[Tuple[int, bytes]] = []
+    if pdf_path is not None:
+        try:
+            page_imgs = _render_pdf_pages(pdf_path, dpi=150, max_pages=max_pages)
+        except Exception as exc:
+            print(f"[WARN] page render failed for {pdf_path.name}: {exc}", file=sys.stderr)
+    for page_no, png_bytes in page_imgs:
+        b64 = base64.b64encode(png_bytes).decode("ascii")
+        content.append({"type": "text", "text": f"[page {page_no}]"})
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/png;base64,{b64}"},
+        })
+
     last_err: Optional[Exception] = None
     for attempt in range(3):
         try:
@@ -1194,13 +1256,13 @@ def llm_extract_paper(text: str, model: Optional[str] = None, max_chars: int = 8
                 model=model,
                 messages=[
                     {"role": "system", "content": LLM_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
+                    {"role": "user", "content": content},
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.0,
             )
-            content = resp.choices[0].message.content or "{}"
-            return json.loads(content)
+            out = resp.choices[0].message.content or "{}"
+            return json.loads(out)
         except Exception as exc:
             last_err = exc
             time.sleep(2 ** attempt)
@@ -1342,14 +1404,28 @@ def process_one_pdf(
     }
     llm_error: Optional[str] = None
     if use_llm:
-        try:
-            llm_payload = llm_extract_paper(full_text)
-        except Exception as exc:
-            llm_error = str(exc)
-            print(f"[WARN] LLM failed for {pdf_path.name}: {exc}", file=sys.stderr)
-        (paper_dir / "llm_raw.json").write_text(
-            json.dumps(llm_payload, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        cache_f = paper_dir / "llm_raw.json"
+        if cache_f.exists():
+            try:
+                llm_payload = json.loads(cache_f.read_text(encoding="utf-8"))
+                print(f"[cache] reusing {cache_f}", file=sys.stderr)
+            except Exception:
+                cache_f.unlink(missing_ok=True)
+        if not cache_f.exists():
+            try:
+                llm_payload = llm_extract_paper(full_text, pdf_path=pdf_path)
+            except Exception as exc:
+                llm_error = str(exc)
+                print(f"[WARN] LLM failed for {pdf_path.name}: {exc}", file=sys.stderr)
+            cache_f.write_text(
+                json.dumps(llm_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+
+    # Per-paper joined summary: monomer -> polymer(components) -> sample(cure, properties)
+    summary = _build_paper_summary(slug, pdf_path, llm_payload, ocsr_monomers, llm_error)
+    (paper_dir / "paper_summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     return {
         "paper_id": slug,
@@ -1357,6 +1433,82 @@ def process_one_pdf(
         "ocsr_monomers": ocsr_monomers,
         "llm": llm_payload,
         "llm_error": llm_error,
+    }
+
+
+def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
+                         ocsr_monomers: Dict[str, Dict[str, Any]],
+                         llm_error: Optional[str]) -> Dict[str, Any]:
+    """Join LLM tables by local keys + attach OCSR/vision SMILES + RDKit-derived fields."""
+    mon_by_abbr: Dict[str, Dict[str, Any]] = {}
+    for m in llm.get("extracted_monomers", []) or []:
+        abbr = m.get("abbreviation", "") or m.get("name", "")
+        if not abbr:
+            continue
+        llm_smi = canonicalize_smiles(m.get("smiles") or "")
+        ocsr_smi = ocsr_monomers.get(abbr, {}).get("smiles", "")
+        chosen = ocsr_smi or llm_smi
+        source = "molscribe" if ocsr_smi else (m.get("smiles_source") or ("image_vision" if llm_smi else "unknown"))
+        ikey = safe_inchikey(chosen) if chosen else ""
+        mon_by_abbr[abbr] = {
+            "abbreviation": abbr,
+            "name": m.get("name", ""),
+            "monomer_class": m.get("monomer_class"),
+            "cas_number": m.get("cas_number"),
+            "smiles": chosen,
+            "smiles_source": source,
+            "inchi_key": ikey,
+            "contains_fluorine": bool(detect_fluorine(chosen)) if chosen else None,
+            "source_page": m.get("source_page"),
+        }
+
+    comps_by_poly: Dict[str, List[Dict[str, Any]]] = {}
+    for c in llm.get("polymer_components", []) or []:
+        comps_by_poly.setdefault(c.get("local_polymer_key", ""), []).append({
+            "monomer_abbr": c.get("monomer_abbreviation") or c.get("monomer_abbr"),
+            "molar_ratio": c.get("molar_ratio"),
+            "role": c.get("role"),
+        })
+
+    cures_by_sample: Dict[str, Dict[str, Any]] = {
+        c.get("local_sample_key", ""): c for c in (llm.get("cure_profiles", []) or [])
+    }
+    props_by_sample: Dict[str, List[Dict[str, Any]]] = {}
+    for p in llm.get("property_records", []) or []:
+        props_by_sample.setdefault(p.get("local_sample_key", ""), []).append(p)
+
+    polymers_out: List[Dict[str, Any]] = []
+    for poly in llm.get("polymers", []) or []:
+        key = poly.get("local_polymer_key", "")
+        comps = comps_by_poly.get(key, [])
+        samples_out: List[Dict[str, Any]] = []
+        for s in llm.get("samples", []) or []:
+            if s.get("local_polymer_key") != key:
+                continue
+            skey = s.get("local_sample_key", "")
+            samples_out.append({
+                "local_sample_key": skey,
+                "sample_label": s.get("sample_label"),
+                "cure_profile": cures_by_sample.get(skey),
+                "properties": props_by_sample.get(skey, []),
+            })
+        polymers_out.append({
+            "local_polymer_key": key,
+            "polymer_name": poly.get("polymer_name"),
+            "polymer_type": poly.get("polymer_type"),
+            "components": [
+                {**c, "monomer": mon_by_abbr.get(c["monomer_abbr"])} for c in comps
+            ],
+            "samples": samples_out,
+        })
+
+    return {
+        "paper_id": paper_id,
+        "source_pdf": str(pdf_path),
+        "doi": llm.get("doi"),
+        "llm_error": llm_error,
+        "monomers": list(mon_by_abbr.values()),
+        "polymers": polymers_out,
     }
 
 
@@ -1480,7 +1632,8 @@ def merge_into_dataset(
             name = m.get("name", "")
             mclass = m.get("monomer_class") or ""
             ocsr_entry = ocsr_map.get(abbr, {})
-            smiles = ocsr_entry.get("smiles", "")
+            # Prefer OCSR SMILES if present; else LLM-vision SMILES; else empty.
+            smiles = ocsr_entry.get("smiles", "") or canonicalize_smiles(m.get("smiles") or "")
             mid = get_or_create_monomer(
                 abbr, name, smiles, mclass, paper_id,
                 ocsr_conf=ocsr_entry.get("confidence", ""),
@@ -1610,16 +1763,26 @@ def merge_into_dataset(
                     vn = None
             if not isinstance(vn, (int, float)):
                 continue
+            pname_raw = prop.get("property_name") or "other"
+            allowed_pnames = {"Tg","Td2","Td5","Td10","Tm","CTE","transmittance","yellow_index",
+                              "haze","refractive_index","cutoff_wavelength","tensile_strength",
+                              "modulus","elongation_at_break","dielectric_constant",
+                              "dissipation_factor","water_uptake","contact_angle",
+                              "inherent_viscosity","other"}
+            pname = pname_raw if pname_raw in allowed_pnames else "other"
+            dec_crit = prop.get("decomposition_criterion")
+            if dec_crit not in ("2_pct", "5_pct", "10_pct", "onset", None):
+                dec_crit = None
             rec = {
                 "record_id": f"PRP_{len(property_table)+1:06d}",
                 "sample_id": sid,
                 "property_category": prop.get("property_category", "other"),
-                "property_name": prop.get("property_name", "other"),
+                "property_name": pname,
                 "value_numeric": vn,
-                "unit": prop.get("unit", ""),
+                "unit": prop.get("unit") or "",
                 "value_std": prop.get("value_std"),
-                "value_raw": prop.get("value_raw", ""),
-                "test_method": prop.get("test_method", "unknown"),
+                "value_raw": prop.get("value_raw") or "",
+                "test_method": prop.get("test_method") or "unknown",
                 "test_standard": None,
                 "temperature_c": prop.get("temperature_c"),
                 "temperature_range_c_min": prop.get("temperature_range_c_min"),
@@ -1629,7 +1792,7 @@ def merge_into_dataset(
                 "heating_rate_c_per_min": None,
                 "atmosphere": None,
                 "humidity_pct": None,
-                "decomposition_criterion": prop.get("decomposition_criterion"),
+                "decomposition_criterion": dec_crit,
                 "tg_definition": prop.get("tg_definition"),
                 "extraction_method": "llm_extracted",
                 "confidence": 0.7,
