@@ -1440,6 +1440,9 @@ def merge_into_dataset(
         # No SMILES: still create a stub keyed by abbr+name so polymer_components can ref it.
         stub_key = f"STUB::{source_paper}::{abbr}::{name}"
         if stub_key not in monomer_table:
+            text = f"{abbr} {name}".lower()
+            f_heuristic = any(tok in text for tok in (
+                "fluor", "6f", "cf3", "hexafluoro", "trifluoro", "perfluoro", "tfmb", "6fda", "bisaf"))
             monomer_table[stub_key] = {
                 "monomer_id": mon_alloc.next(),
                 "canonical_smiles": "",
@@ -1451,7 +1454,7 @@ def merge_into_dataset(
                     "dianhydride", "diamine", "crosslinker") else "other",
                 "functional_groups": [],
                 "functionality": 2,
-                "contains_fluorine": False,
+                "contains_fluorine": bool(f_heuristic),
                 "dft_features": None,
                 "notes": f"stub_no_smiles:{source_paper}",
             }
@@ -1581,11 +1584,14 @@ def merge_into_dataset(
             sid = local_smp_to_id.get(local_key)
             if not sid:
                 continue
+            atm = cure.get("atmosphere")
+            if atm in (None, "null", "None", ""):
+                atm = "N2"
             cure_table.append({
                 "curve_id": f"CURE_{len(cure_table)+1:06d}",
                 "sample_id": sid,
                 "imidization_type": cure.get("imidization_type", "thermal"),
-                "atmosphere": cure.get("atmosphere") or "N2",
+                "atmosphere": atm,
                 "segments": cure.get("segments", []),
             })
 
@@ -1596,12 +1602,20 @@ def merge_into_dataset(
             sid = local_smp_to_id.get(local_key)
             if not sid:
                 continue
+            vn = prop.get("value_numeric")
+            if isinstance(vn, str):
+                try:
+                    vn = float(vn)
+                except (TypeError, ValueError):
+                    vn = None
+            if not isinstance(vn, (int, float)):
+                continue
             rec = {
                 "record_id": f"PRP_{len(property_table)+1:06d}",
                 "sample_id": sid,
                 "property_category": prop.get("property_category", "other"),
                 "property_name": prop.get("property_name", "other"),
-                "value_numeric": prop.get("value_numeric"),
+                "value_numeric": vn,
                 "unit": prop.get("unit", ""),
                 "value_std": prop.get("value_std"),
                 "value_raw": prop.get("value_raw", ""),
@@ -1624,6 +1638,49 @@ def merge_into_dataset(
 
     # Strip helper paper_id field before validating sample table (not in schema).
     sample_table_out = [{k: v for k, v in s.items() if k != "paper_id"} for s in sample_table]
+
+    # Enrich stub monomers via PubChem to populate InChIKey / contains_fluorine.
+    _pubchem_cache: Dict[str, str] = {}
+    for rec in monomer_table.values():
+        if rec.get("inchi_key"):
+            continue
+        for query in (rec.get("common_name"), rec.get("abbreviation")):
+            if not query:
+                continue
+            if query in _pubchem_cache:
+                smi = _pubchem_cache[query]
+            else:
+                smi, _ = resolve_with_pubchem(query)
+                _pubchem_cache[query] = smi
+            if not smi:
+                continue
+            ikey = safe_inchikey(smi)
+            if not ikey:
+                continue
+            rec["canonical_smiles"] = smi
+            rec["inchi_key"] = ikey
+            rec["functional_groups"] = infer_functional_groups(smi)
+            rec["functionality"] = infer_functionality(smi, rec.get("monomer_class", "other"))
+            rec["contains_fluorine"] = detect_fluorine(smi) or False
+            rec["notes"] = f"{rec.get('notes','')};pubchem_enriched"
+            break
+
+    # Consolidate enriched stubs sharing an InChIKey (dedup across papers).
+    seen_ikey: Dict[str, str] = {}
+    id_remap: Dict[str, str] = {}
+    consolidated: Dict[str, Dict[str, Any]] = {}
+    for k, rec in monomer_table.items():
+        ikey = rec.get("inchi_key")
+        if ikey and ikey in seen_ikey:
+            id_remap[rec["monomer_id"]] = seen_ikey[ikey]
+            continue
+        if ikey:
+            seen_ikey[ikey] = rec["monomer_id"]
+        consolidated[k] = rec
+    if id_remap:
+        for comp in component_table:
+            comp["monomer_id"] = id_remap.get(comp["monomer_id"], comp["monomer_id"])
+        monomer_table = consolidated
 
     out_files = {
         "monomer.json": list(monomer_table.values()),
