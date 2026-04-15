@@ -1415,7 +1415,6 @@ def merge_into_dataset(
                     "functional_groups": infer_functional_groups(smiles),
                     "functionality": infer_functionality(smiles, role),
                     "contains_fluorine": detect_fluorine(smiles) or False,
-                    "mw_g_per_mol": None,
                     "dft_features": None,
                     "notes": f"first_seen:{source_paper}",
                 }
@@ -1453,7 +1452,6 @@ def merge_into_dataset(
                 "functional_groups": [],
                 "functionality": 2,
                 "contains_fluorine": False,
-                "mw_g_per_mol": None,
                 "dft_features": None,
                 "notes": f"stub_no_smiles:{source_paper}",
             }
