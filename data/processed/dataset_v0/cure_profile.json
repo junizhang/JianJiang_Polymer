@@ -94,54 +94,18 @@
   {
     "curve_id": "CURE_000005",
     "sample_id": "SMP_000005",
-    "imidization_type": "thermal",
+    "imidization_type": "chemical",
     "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 50.0,
+        "temp_c": 70.0,
         "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 80.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 3,
-        "temp_c": 110.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 4,
-        "temp_c": 140.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 5,
         "temp_c": 170.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 6,
-        "temp_c": 195.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 7,
-        "temp_c": 220.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 8,
-        "temp_c": 235.0,
         "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
@@ -150,54 +114,18 @@
   {
     "curve_id": "CURE_000006",
     "sample_id": "SMP_000006",
-    "imidization_type": "thermal",
+    "imidization_type": "chemical",
     "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 50.0,
+        "temp_c": 70.0,
         "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 80.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 3,
-        "temp_c": 110.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 4,
-        "temp_c": 140.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 5,
         "temp_c": 170.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 6,
-        "temp_c": 195.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 7,
-        "temp_c": 220.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 8,
-        "temp_c": 235.0,
         "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
@@ -206,54 +134,18 @@
   {
     "curve_id": "CURE_000007",
     "sample_id": "SMP_000007",
-    "imidization_type": "thermal",
+    "imidization_type": "chemical",
     "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 50.0,
+        "temp_c": 70.0,
         "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 80.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 3,
-        "temp_c": 110.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 4,
-        "temp_c": 140.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 5,
         "temp_c": 170.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 6,
-        "temp_c": 195.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 7,
-        "temp_c": 220.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 8,
-        "temp_c": 235.0,
         "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
@@ -262,54 +154,18 @@
   {
     "curve_id": "CURE_000008",
     "sample_id": "SMP_000008",
-    "imidization_type": "thermal",
+    "imidization_type": "chemical",
     "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 50.0,
+        "temp_c": 70.0,
         "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 80.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 3,
-        "temp_c": 110.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 4,
-        "temp_c": 140.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 5,
         "temp_c": 170.0,
-        "duration_min": 30.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 6,
-        "temp_c": 195.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 7,
-        "temp_c": 220.0,
-        "duration_min": 60.0,
-        "ramp_rate_c_per_min": null
-      },
-      {
-        "step_order": 8,
-        "temp_c": 235.0,
         "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
@@ -655,30 +511,54 @@
     "curve_id": "CURE_000015",
     "sample_id": "SMP_000015",
     "imidization_type": "thermal",
-    "atmosphere": "N2",
+    "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 90,
-        "duration_min": 600,
+        "temp_c": 50.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 180,
-        "duration_min": 60,
+        "temp_c": 80.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 3,
-        "temp_c": 240,
-        "duration_min": 60,
+        "temp_c": 110.0,
+        "duration_min": 30.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 4,
-        "temp_c": 330,
-        "duration_min": 60,
+        "temp_c": 140.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 5,
+        "temp_c": 170.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 6,
+        "temp_c": 195.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 7,
+        "temp_c": 220.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 8,
+        "temp_c": 235.0,
+        "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
     ]
@@ -687,30 +567,54 @@
     "curve_id": "CURE_000016",
     "sample_id": "SMP_000016",
     "imidization_type": "thermal",
-    "atmosphere": "N2",
+    "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 90,
-        "duration_min": 600,
+        "temp_c": 50.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 180,
-        "duration_min": 60,
+        "temp_c": 80.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 3,
-        "temp_c": 240,
-        "duration_min": 60,
+        "temp_c": 110.0,
+        "duration_min": 30.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 4,
-        "temp_c": 330,
-        "duration_min": 60,
+        "temp_c": 140.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 5,
+        "temp_c": 170.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 6,
+        "temp_c": 195.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 7,
+        "temp_c": 220.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 8,
+        "temp_c": 235.0,
+        "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
     ]
@@ -719,30 +623,54 @@
     "curve_id": "CURE_000017",
     "sample_id": "SMP_000017",
     "imidization_type": "thermal",
-    "atmosphere": "N2",
+    "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 90,
-        "duration_min": 600,
+        "temp_c": 50.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 180,
-        "duration_min": 60,
+        "temp_c": 80.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 3,
-        "temp_c": 240,
-        "duration_min": 60,
+        "temp_c": 110.0,
+        "duration_min": 30.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 4,
-        "temp_c": 330,
-        "duration_min": 60,
+        "temp_c": 140.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 5,
+        "temp_c": 170.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 6,
+        "temp_c": 195.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 7,
+        "temp_c": 220.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 8,
+        "temp_c": 235.0,
+        "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
     ]
@@ -751,30 +679,54 @@
     "curve_id": "CURE_000018",
     "sample_id": "SMP_000018",
     "imidization_type": "thermal",
-    "atmosphere": "N2",
+    "atmosphere": "vacuum",
     "segments": [
       {
         "step_order": 1,
-        "temp_c": 90,
-        "duration_min": 600,
+        "temp_c": 50.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 2,
-        "temp_c": 180,
-        "duration_min": 60,
+        "temp_c": 80.0,
+        "duration_min": 60.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 3,
-        "temp_c": 240,
-        "duration_min": 60,
+        "temp_c": 110.0,
+        "duration_min": 30.0,
         "ramp_rate_c_per_min": null
       },
       {
         "step_order": 4,
-        "temp_c": 330,
-        "duration_min": 60,
+        "temp_c": 140.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 5,
+        "temp_c": 170.0,
+        "duration_min": 30.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 6,
+        "temp_c": 195.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 7,
+        "temp_c": 220.0,
+        "duration_min": 60.0,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 8,
+        "temp_c": 235.0,
+        "duration_min": 120.0,
         "ramp_rate_c_per_min": null
       }
     ]
@@ -819,6 +771,134 @@
     "segments": [
       {
         "step_order": 1,
+        "temp_c": 90,
+        "duration_min": 600,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 2,
+        "temp_c": 180,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 3,
+        "temp_c": 240,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 4,
+        "temp_c": 330,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      }
+    ]
+  },
+  {
+    "curve_id": "CURE_000021",
+    "sample_id": "SMP_000021",
+    "imidization_type": "thermal",
+    "atmosphere": "N2",
+    "segments": [
+      {
+        "step_order": 1,
+        "temp_c": 90,
+        "duration_min": 600,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 2,
+        "temp_c": 180,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 3,
+        "temp_c": 240,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 4,
+        "temp_c": 330,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      }
+    ]
+  },
+  {
+    "curve_id": "CURE_000022",
+    "sample_id": "SMP_000022",
+    "imidization_type": "thermal",
+    "atmosphere": "N2",
+    "segments": [
+      {
+        "step_order": 1,
+        "temp_c": 90,
+        "duration_min": 600,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 2,
+        "temp_c": 180,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 3,
+        "temp_c": 240,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 4,
+        "temp_c": 330,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      }
+    ]
+  },
+  {
+    "curve_id": "CURE_000023",
+    "sample_id": "SMP_000023",
+    "imidization_type": "thermal",
+    "atmosphere": "N2",
+    "segments": [
+      {
+        "step_order": 1,
+        "temp_c": 90,
+        "duration_min": 600,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 2,
+        "temp_c": 180,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 3,
+        "temp_c": 240,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      },
+      {
+        "step_order": 4,
+        "temp_c": 330,
+        "duration_min": 60,
+        "ramp_rate_c_per_min": null
+      }
+    ]
+  },
+  {
+    "curve_id": "CURE_000024",
+    "sample_id": "SMP_000024",
+    "imidization_type": "thermal",
+    "atmosphere": "N2",
+    "segments": [
+      {
+        "step_order": 1,
         "temp_c": 0,
         "duration_min": 60,
         "ramp_rate_c_per_min": null
@@ -844,8 +924,8 @@
     ]
   },
   {
-    "curve_id": "CURE_000021",
-    "sample_id": "SMP_000021",
+    "curve_id": "CURE_000025",
+    "sample_id": "SMP_000025",
     "imidization_type": "thermal",
     "atmosphere": "N2",
     "segments": [
@@ -900,8 +980,8 @@
     ]
   },
   {
-    "curve_id": "CURE_000022",
-    "sample_id": "SMP_000022",
+    "curve_id": "CURE_000026",
+    "sample_id": "SMP_000026",
     "imidization_type": "thermal",
     "atmosphere": "N2",
     "segments": [
@@ -968,8 +1048,8 @@
     ]
   },
   {
-    "curve_id": "CURE_000023",
-    "sample_id": "SMP_000023",
+    "curve_id": "CURE_000027",
+    "sample_id": "SMP_000027",
     "imidization_type": "thermal",
     "atmosphere": "N2",
     "segments": [

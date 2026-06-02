@@ -19,15 +19,6 @@
   },
   {
     "polymer_id": "POL_000001",
-    "monomer_id": "MON_000003",
-    "role": "diacid_chloride",
-    "molar_ratio": 0.4,
-    "weight_ratio": null,
-    "is_crosslinker": false,
-    "notes": ""
-  },
-  {
-    "polymer_id": "POL_000001",
     "monomer_id": "MON_000004",
     "role": "diamine",
     "molar_ratio": 1.0,
@@ -36,35 +27,8 @@
     "notes": ""
   },
   {
-    "polymer_id": "POL_000001",
-    "monomer_id": "MON_000005",
-    "role": "crosslinker",
-    "molar_ratio": 0.0,
-    "weight_ratio": null,
-    "is_crosslinker": true,
-    "notes": ""
-  },
-  {
     "polymer_id": "POL_000002",
-    "monomer_id": "MON_000006",
-    "role": "dianhydride",
-    "molar_ratio": 1.0,
-    "weight_ratio": null,
-    "is_crosslinker": false,
-    "notes": ""
-  },
-  {
-    "polymer_id": "POL_000002",
-    "monomer_id": "MON_000007",
-    "role": "diamine",
-    "molar_ratio": 1.0,
-    "weight_ratio": null,
-    "is_crosslinker": false,
-    "notes": ""
-  },
-  {
-    "polymer_id": "POL_000003",
-    "monomer_id": "MON_000006",
+    "monomer_id": "MON_000001",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -74,6 +38,15 @@
   {
     "polymer_id": "POL_000003",
     "monomer_id": "MON_000008",
+    "role": "dianhydride",
+    "molar_ratio": 1.0,
+    "weight_ratio": null,
+    "is_crosslinker": false,
+    "notes": ""
+  },
+  {
+    "polymer_id": "POL_000003",
+    "monomer_id": "MON_000009",
     "role": "diamine",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -82,7 +55,7 @@
   },
   {
     "polymer_id": "POL_000004",
-    "monomer_id": "MON_000009",
+    "monomer_id": "MON_000008",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -93,23 +66,14 @@
     "polymer_id": "POL_000004",
     "monomer_id": "MON_000010",
     "role": "diamine",
-    "molar_ratio": 98.0,
-    "weight_ratio": null,
-    "is_crosslinker": false,
-    "notes": ""
-  },
-  {
-    "polymer_id": "POL_000004",
-    "monomer_id": "MON_000011",
-    "role": "diamine",
-    "molar_ratio": 2.0,
+    "molar_ratio": 1.0,
     "weight_ratio": null,
     "is_crosslinker": false,
     "notes": ""
   },
   {
     "polymer_id": "POL_000005",
-    "monomer_id": "MON_000009",
+    "monomer_id": "MON_000011",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -118,7 +82,7 @@
   },
   {
     "polymer_id": "POL_000005",
-    "monomer_id": "MON_000010",
+    "monomer_id": "MON_000004",
     "role": "diamine",
     "molar_ratio": 98.0,
     "weight_ratio": null,
@@ -127,7 +91,7 @@
   },
   {
     "polymer_id": "POL_000005",
-    "monomer_id": "MON_000011",
+    "monomer_id": "MON_000012",
     "role": "diamine",
     "molar_ratio": 2.0,
     "weight_ratio": null,
@@ -135,17 +99,8 @@
     "notes": ""
   },
   {
-    "polymer_id": "POL_000005",
-    "monomer_id": "MON_000012",
-    "role": "crosslinker",
-    "molar_ratio": 0.001,
-    "weight_ratio": null,
-    "is_crosslinker": true,
-    "notes": ""
-  },
-  {
     "polymer_id": "POL_000006",
-    "monomer_id": "MON_000009",
+    "monomer_id": "MON_000011",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -154,7 +109,7 @@
   },
   {
     "polymer_id": "POL_000006",
-    "monomer_id": "MON_000010",
+    "monomer_id": "MON_000004",
     "role": "diamine",
     "molar_ratio": 98.0,
     "weight_ratio": null,
@@ -163,7 +118,7 @@
   },
   {
     "polymer_id": "POL_000006",
-    "monomer_id": "MON_000011",
+    "monomer_id": "MON_000012",
     "role": "diamine",
     "molar_ratio": 2.0,
     "weight_ratio": null,
@@ -171,17 +126,8 @@
     "notes": ""
   },
   {
-    "polymer_id": "POL_000006",
-    "monomer_id": "MON_000012",
-    "role": "crosslinker",
-    "molar_ratio": 0.005,
-    "weight_ratio": null,
-    "is_crosslinker": true,
-    "notes": ""
-  },
-  {
     "polymer_id": "POL_000007",
-    "monomer_id": "MON_000009",
+    "monomer_id": "MON_000011",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -190,7 +136,7 @@
   },
   {
     "polymer_id": "POL_000007",
-    "monomer_id": "MON_000010",
+    "monomer_id": "MON_000004",
     "role": "diamine",
     "molar_ratio": 98.0,
     "weight_ratio": null,
@@ -199,7 +145,7 @@
   },
   {
     "polymer_id": "POL_000007",
-    "monomer_id": "MON_000011",
+    "monomer_id": "MON_000012",
     "role": "diamine",
     "molar_ratio": 2.0,
     "weight_ratio": null,
@@ -207,17 +153,8 @@
     "notes": ""
   },
   {
-    "polymer_id": "POL_000007",
-    "monomer_id": "MON_000012",
-    "role": "crosslinker",
-    "molar_ratio": 0.01,
-    "weight_ratio": null,
-    "is_crosslinker": true,
-    "notes": ""
-  },
-  {
     "polymer_id": "POL_000008",
-    "monomer_id": "MON_000009",
+    "monomer_id": "MON_000011",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
@@ -226,7 +163,7 @@
   },
   {
     "polymer_id": "POL_000008",
-    "monomer_id": "MON_000010",
+    "monomer_id": "MON_000004",
     "role": "diamine",
     "molar_ratio": 98.0,
     "weight_ratio": null,
@@ -235,34 +172,52 @@
   },
   {
     "polymer_id": "POL_000008",
-    "monomer_id": "MON_000011",
+    "monomer_id": "MON_000012",
     "role": "diamine",
     "molar_ratio": 2.0,
     "weight_ratio": null,
     "is_crosslinker": false,
-    "notes": ""
-  },
-  {
-    "polymer_id": "POL_000008",
-    "monomer_id": "MON_000012",
-    "role": "crosslinker",
-    "molar_ratio": 0.03,
-    "weight_ratio": null,
-    "is_crosslinker": true,
     "notes": ""
   },
   {
     "polymer_id": "POL_000009",
-    "monomer_id": "MON_000013",
+    "monomer_id": "MON_000011",
     "role": "dianhydride",
     "molar_ratio": 1.0,
     "weight_ratio": null,
-    "is_crosslinker": true,
+    "is_crosslinker": false,
     "notes": ""
   },
   {
     "polymer_id": "POL_000009",
+    "monomer_id": "MON_000004",
+    "role": "diamine",
+    "molar_ratio": 98.0,
+    "weight_ratio": null,
+    "is_crosslinker": false,
+    "notes": ""
+  },
+  {
+    "polymer_id": "POL_000009",
+    "monomer_id": "MON_000012",
+    "role": "diamine",
+    "molar_ratio": 2.0,
+    "weight_ratio": null,
+    "is_crosslinker": false,
+    "notes": ""
+  },
+  {
+    "polymer_id": "POL_000010",
     "monomer_id": "MON_000014",
+    "role": "dianhydride",
+    "molar_ratio": 1.0,
+    "weight_ratio": null,
+    "is_crosslinker": true,
+    "notes": ""
+  },
+  {
+    "polymer_id": "POL_000010",
+    "monomer_id": "MON_000015",
     "role": "diamine",
     "molar_ratio": 1.0,
     "weight_ratio": null,

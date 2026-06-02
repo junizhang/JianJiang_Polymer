@@ -1,0 +1,52 @@
+[
+  {
+    "series_id": "SER_000001",
+    "paper_id": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic",
+    "series_name": "TCL/BTC crosslinker ratio series",
+    "variable_name": "BTC_to_TCL_ratio",
+    "variable_kind": "composition_ratio",
+    "variable_unit": "mol_ratio",
+    "variable_values_text": "sample-specific ratios vary; exact mapping not fully recovered from cached extraction",
+    "notes": "Variable co-monomer / crosslinker ratio should live at sample-level composition, not polymer-level composition."
+  },
+  {
+    "series_id": "SER_000002",
+    "paper_id": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper",
+    "series_name": "4AD/TTDA diamine ratio series",
+    "variable_name": "4AD_to_TTDA_ratio",
+    "variable_kind": "composition_ratio",
+    "variable_unit": "mol_ratio",
+    "variable_values_text": "6FDA0=0:10, 6FDA14=2:8, 6FDA32=6:4, 6FDA1=10:0",
+    "notes": "Diamine composition controls Tg and self-healing performance."
+  },
+  {
+    "series_id": "SER_000003",
+    "paper_id": "comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na",
+    "series_name": "CS30B organoclay loading series",
+    "variable_name": "CS30B_loading",
+    "variable_kind": "filler_loading",
+    "variable_unit": "wt_pct",
+    "variable_values_text": "0, 1, 2, 3, 4 wt%",
+    "notes": "Primary nanofiller variable in the hybrid CPI study."
+  },
+  {
+    "series_id": "SER_000004",
+    "paper_id": "crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p",
+    "series_name": "1,3-PBO loading series",
+    "variable_name": "1,3-PBO_loading",
+    "variable_kind": "crosslinker_loading",
+    "variable_unit": "wt_pct",
+    "variable_values_text": "0, 0.1, 0.5, 1, 3 wt%",
+    "notes": "Mass ratio of 1,3-PBO to CPI/PAA-derived film."
+  },
+  {
+    "series_id": "SER_000005",
+    "paper_id": "fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he",
+    "series_name": "annealing / imidization temperature series",
+    "variable_name": "anneal_temperature",
+    "variable_kind": "processing_temperature",
+    "variable_unit": "°C",
+    "variable_values_text": "250, 300, 350, 80",
+    "notes": "Processing condition series; not a composition ratio series."
+  }
+]

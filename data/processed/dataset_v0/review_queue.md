@@ -1,6 +1,29 @@
 # Review Queue
 
-Generated: 2026-04-15 16:30:18
+Generated: 2026-04-15 18:24:44
 
-Total items: 0
+Total items: 22
 
+
+- **monomer_structure_candidate_disagrees_with_reference**: {"abbr": "6FDA", "name": "4,4'-(hexafluoroisopropylidene)diphthalic anhydride", "candidate_source": "input", "candidate_smiles": "O=C1Cc2cc(cc(C(F)(F)F)c2C(F)(F)F)C(=O)O1", "reference_smiles": "O=C1OC(=O)c2cc(C(c3ccc4c(c3)C(=O)OC4=O)(C(F)(F)F)C(F)(F)F)ccc21", "paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"}
+- **monomer_structure_overridden**: {"paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic", "abbr": "6FDA", "name": "4,4'-(hexafluoroisopropylidene)diphthalic anhydride", "input_smiles": "O=C1Cc2cc(cc(C(F)(F)F)c2C(F)(F)F)C(=O)O1", "reference_smiles": "O=C1OC(=O)c2cc(C(c3ccc4c(c3)C(=O)OC4=O)(C(F)(F)F)C(F)(F)F)ccc21"}
+- **monomer_structure_candidate_disagrees_with_reference**: {"abbr": "TFMB", "name": "2,2'-bis(trifluoromethyl)-[1,1'-biphenyl]-4,4'-diamine", "candidate_source": "input", "candidate_smiles": "Nc1ccc(C(F)(F)F)c(C(F)(F)F)c1-c1c(N)ccc(C(F)(F)F)c1C(F)(F)F", "reference_smiles": "Nc1ccc(C(F)(F)F)c(-c2ccc(N)cc2C(F)(F)F)c1", "paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic"}
+- **monomer_structure_overridden**: {"paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic", "abbr": "TFMB", "name": "2,2'-bis(trifluoromethyl)-[1,1'-biphenyl]-4,4'-diamine", "input_smiles": "Nc1ccc(C(F)(F)F)c(C(F)(F)F)c1-c1c(N)ccc(C(F)(F)F)c1C(F)(F)F", "reference_smiles": "Nc1ccc(C(F)(F)F)c(-c2ccc(N)cc2C(F)(F)F)c1"}
+- **polymer_component_moved_to_sample_level**: {"paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic", "polymer": "PAI", "abbreviation": "TCL", "reason": "variable loading / ratio should not be fixed at polymer-level"}
+- **polymer_component_moved_to_sample_level**: {"paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic", "polymer": "PAI", "abbreviation": "BTC", "reason": "variable loading / ratio should not be fixed at polymer-level"}
+- **missing_sample_level_composition**: {"paper": "colorless_poly_amide-imide_s_with_low_dielectric_constants_and_enhanced_mechanic", "reason": "TCL/BTC variable ratio detected, but exact sample-wise mapping was not recovered from cached extraction."}
+- **missing_smiles**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "abbr": "4AD", "name": "4,4'-dithioaniline"}
+- **missing_smiles**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "abbr": "TTDA", "name": "4,7,10-Trioxa-1,13-tridecanediamine"}
+- **qualified_property_value**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "sample": "6FDA0", "property_name": "Tg", "value_raw": "within 75 °C", "value_qualifier": "approx"}
+- **qualified_property_value**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "sample": "6FDA14", "property_name": "Tg", "value_raw": "approximately 95 °C", "value_qualifier": "approx"}
+- **qualified_property_value**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "sample": "6FDA0", "property_name": "transmittance", "value_raw": ">95%", "value_qualifier": "gt"}
+- **qualified_property_value**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "sample": "6FDA14", "property_name": "transmittance", "value_raw": ">95%", "value_qualifier": "gt"}
+- **qualified_property_value**: {"paper": "colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper", "sample": "6FDA14", "property_name": "healing_efficiency", "value_raw": ">98%", "value_qualifier": "gt"}
+- **qualified_property_value**: {"paper": "comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na", "sample": "CPI-BAPP-0wt%", "property_name": "yellow_index", "value_raw": "<1", "value_qualifier": "lt"}
+- **qualified_property_value**: {"paper": "comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na", "sample": "CPI-6FBAPP-0wt%", "property_name": "yellow_index", "value_raw": "<1", "value_qualifier": "lt"}
+- **missing_high_value_property**: {"paper": "comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na", "property_name": "free_volume_fraction"}
+- **polymer_component_moved_to_sample_level**: {"paper": "crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p", "polymer": "CPI1", "abbreviation": "1,3-PBO", "reason": "variable loading / ratio should not be fixed at polymer-level"}
+- **polymer_component_moved_to_sample_level**: {"paper": "crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p", "polymer": "CPI2", "abbreviation": "1,3-PBO", "reason": "variable loading / ratio should not be fixed at polymer-level"}
+- **polymer_component_moved_to_sample_level**: {"paper": "crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p", "polymer": "CPI3", "abbreviation": "1,3-PBO", "reason": "variable loading / ratio should not be fixed at polymer-level"}
+- **polymer_component_moved_to_sample_level**: {"paper": "crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p", "polymer": "CPI4", "abbreviation": "1,3-PBO", "reason": "variable loading / ratio should not be fixed at polymer-level"}
+- **missing_high_value_property**: {"paper": "crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p", "property_name": "free_volume_fraction"}

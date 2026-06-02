@@ -7,21 +7,21 @@
     "is_copolymer": true,
     "imidization_route": "mixed",
     "bigsmiles": null,
-    "composition_hash": "c0144ac5731c085c",
+    "composition_hash": "8d48550e3e087ac3",
     "source_type": "literature",
     "source_doi": "10.1021/acsapm.3c02287"
   },
   {
     "polymer_id": "POL_000002",
-    "polymer_name": null,
+    "polymer_name": "self-healing colorless polyimide family",
     "polymer_class": "polyimide",
     "is_crosslinked": false,
-    "is_copolymer": false,
-    "imidization_route": "thermal",
+    "is_copolymer": true,
+    "imidization_route": "chemical",
     "bigsmiles": null,
-    "composition_hash": "dc8debdc1a8011d9",
+    "composition_hash": "3bea3606a4648f79",
     "source_type": "literature",
-    "source_doi": "10.1039/d5ra02285a"
+    "source_doi": null
   },
   {
     "polymer_id": "POL_000003",
@@ -31,7 +31,7 @@
     "is_copolymer": false,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "1770d9d91a164c6f",
+    "composition_hash": "f13de8b70be52e15",
     "source_type": "literature",
     "source_doi": "10.1039/d5ra02285a"
   },
@@ -40,22 +40,22 @@
     "polymer_name": null,
     "polymer_class": "polyimide",
     "is_crosslinked": false,
-    "is_copolymer": true,
+    "is_copolymer": false,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "ac269f7614d082bf",
+    "composition_hash": "734e8cd59fb664c2",
     "source_type": "literature",
-    "source_doi": "10.1007/s10118-024-3235-0"
+    "source_doi": "10.1039/d5ra02285a"
   },
   {
     "polymer_id": "POL_000005",
     "polymer_name": null,
     "polymer_class": "polyimide",
-    "is_crosslinked": true,
+    "is_crosslinked": false,
     "is_copolymer": true,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "c7ca2388bae1433d",
+    "composition_hash": "d613c1726ebfde1b",
     "source_type": "literature",
     "source_doi": "10.1007/s10118-024-3235-0"
   },
@@ -67,7 +67,7 @@
     "is_copolymer": true,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "a73605599f60a7df",
+    "composition_hash": "d613c1726ebfde1b",
     "source_type": "literature",
     "source_doi": "10.1007/s10118-024-3235-0"
   },
@@ -79,7 +79,7 @@
     "is_copolymer": true,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "67908ddda3cc31ba",
+    "composition_hash": "d613c1726ebfde1b",
     "source_type": "literature",
     "source_doi": "10.1007/s10118-024-3235-0"
   },
@@ -91,7 +91,7 @@
     "is_copolymer": true,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "e1ad16d3c5d5947c",
+    "composition_hash": "d613c1726ebfde1b",
     "source_type": "literature",
     "source_doi": "10.1007/s10118-024-3235-0"
   },
@@ -100,10 +100,22 @@
     "polymer_name": null,
     "polymer_class": "polyimide",
     "is_crosslinked": true,
+    "is_copolymer": true,
+    "imidization_route": "thermal",
+    "bigsmiles": null,
+    "composition_hash": "d613c1726ebfde1b",
+    "source_type": "literature",
+    "source_doi": "10.1007/s10118-024-3235-0"
+  },
+  {
+    "polymer_id": "POL_000010",
+    "polymer_name": null,
+    "polymer_class": "polyimide",
+    "is_crosslinked": true,
     "is_copolymer": false,
     "imidization_route": "thermal",
     "bigsmiles": null,
-    "composition_hash": "efd1729a8a40adbc",
+    "composition_hash": "071843a5200ede7b",
     "source_type": "literature",
     "source_doi": null
   }

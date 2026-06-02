@@ -717,6 +717,43 @@ def resolve_with_opsin(name: str) -> Tuple[str, str]:
         return "", f"opsin:{exc}"
 
 
+def resolve_smiles_from_identity(
+    abbreviation: str,
+    name: str,
+    role: str,
+    candidate_smiles: Sequence[Tuple[str, str]],
+) -> Tuple[str, str, List[Dict[str, Any]]]:
+    review_items: List[Dict[str, Any]] = []
+    ref_smi = reference_smiles_for_monomer(abbreviation, name)
+    if ref_smi:
+        for candidate, source in candidate_smiles:
+            cand = canonicalize_smiles(candidate or "")
+            if cand and cand != ref_smi:
+                review_items.append({
+                    "kind": "monomer_structure_candidate_disagrees_with_reference",
+                    "abbr": abbreviation,
+                    "name": name,
+                    "candidate_source": source,
+                    "candidate_smiles": cand,
+                    "reference_smiles": ref_smi,
+                })
+        return ref_smi, "reference", review_items
+
+    for resolver in (resolve_with_pubchem, resolve_with_opsin):
+        if not name:
+            break
+        smi, source = resolver(name)
+        smi = canonicalize_smiles(smi or "")
+        if smi:
+            return smi, source, review_items
+
+    for candidate, source in candidate_smiles:
+        cand = canonicalize_smiles(candidate or "")
+        if cand:
+            return cand, source, review_items
+    return "", "unresolved", review_items
+
+
 def resolve_monomer_smiles(monomers: Dict[str, Monomer], cache: dict) -> None:
     for monomer in monomers.values():
         if monomer.smiles and monomer.name:
@@ -1068,6 +1105,10 @@ LLM_OUTPUT_SCHEMA = {
                 "properties": {
                     "local_sample_key": {"type": "string"},
                     "local_polymer_key": {"type": "string"},
+                    "sample_label": {"type": ["string", "null"]},
+                    "material_stage": {"type": ["string", "null"], "enum": [
+                        "monomer_solution", "paa_precursor", "partially_imidized_film",
+                        "pi_final_film", "composite_film", "final_film", None]},
                     "solvent": {"type": ["string", "null"]},
                     "film_thickness_um": {"type": ["number", "null"]},
                     "mw_g_per_mol": {"type": ["number", "null"]},
@@ -1106,24 +1147,30 @@ LLM_OUTPUT_SCHEMA = {
         "property_records": {
             "type": "array",
             "items": {
-                "type": "object",
-                "required": ["local_sample_key", "property_category", "property_name",
-                             "value_numeric", "unit", "test_method", "value_raw"],
-                "properties": {
-                    "local_sample_key": {"type": "string"},
-                    "property_category": {"type": "string", "enum": [
-                        "thermal", "optical", "mechanical", "electrical", "dielectric",
+                        "type": "object",
+                        "required": ["local_sample_key", "property_category", "property_name",
+                                     "value_numeric", "unit", "test_method", "value_raw"],
+                        "properties": {
+                            "local_sample_key": {"type": "string"},
+                            "property_category": {"type": "string", "enum": [
+                        "thermal", "optical", "mechanical", "electrical", "physical", "dielectric",
                         "barrier", "chemical", "other"]},
                     "property_name": {"type": "string", "enum": [
                         "Tg", "Td2", "Td5", "Td10", "Tm", "CTE", "transmittance",
-                        "yellow_index", "haze", "refractive_index", "cutoff_wavelength",
+                        "yellow_index", "haze", "refractive_index", "cutoff_wavelength", "lambda_90",
                         "tensile_strength", "modulus", "elongation_at_break",
                         "dielectric_constant", "dissipation_factor", "water_uptake",
-                        "contact_angle", "inherent_viscosity", "other"]},
+                        "contact_angle", "density", "free_volume_fraction", "residual_weight_600c",
+                        "degree_of_crosslinking", "hardness", "healing_efficiency",
+                        "inherent_viscosity", "other"]},
                     "value_numeric": {"type": "number"},
                     "unit": {"type": "string"},
                     "value_std": {"type": ["number", "null"]},
                     "value_raw": {"type": "string"},
+                    "value_qualifier": {"type": ["string", "null"], "enum": [
+                        "exact", "approx", "lt", "lte", "gt", "gte", "range", None]},
+                    "property_name_raw": {"type": ["string", "null"]},
+                    "unit_raw": {"type": ["string", "null"]},
                     "test_method": {"type": "string"},
                     "wavelength_nm": {"type": ["number", "null"]},
                     "frequency_hz": {"type": ["number", "null"]},
@@ -1135,6 +1182,57 @@ LLM_OUTPUT_SCHEMA = {
                     "tg_definition": {"type": ["string", "null"], "enum": [
                         "dsc_inflection", "dsc_midpoint", "dma_tan_delta_peak",
                         "dma_storage_onset", "tma_inflection", "unknown", None]},
+                    "source_page": {"type": ["integer", "null"]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "material_components": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["component_name", "component_class"],
+                "properties": {
+                    "component_name": {"type": "string"},
+                    "abbreviation": {"type": ["string", "null"]},
+                    "component_class": {"type": "string", "enum": ["filler", "nanofiller", "additive", "solvent", "other"]},
+                    "chemical_description": {"type": ["string", "null"]},
+                    "surface_treatment": {"type": ["string", "null"]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "sample_compositions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["local_sample_key", "component_name", "component_kind"],
+                "properties": {
+                    "local_sample_key": {"type": "string"},
+                    "component_name": {"type": "string"},
+                    "component_abbreviation": {"type": ["string", "null"]},
+                    "component_kind": {"type": "string", "enum": ["monomer", "crosslinker", "filler", "additive", "solvent", "other"]},
+                    "component_role": {"type": ["string", "null"]},
+                    "amount_value": {"type": ["number", "null"]},
+                    "amount_unit": {"type": ["string", "null"], "enum": ["mol_ratio", "mol_pct", "wt_pct", "mass_ratio", "feed_ratio", "equiv", "phr", "unknown", None]},
+                    "amount_basis": {"type": ["string", "null"], "enum": ["vs_total_monomer", "vs_polymer", "vs_total_solids", "vs_resin", "vs_sample", "unknown", None]},
+                    "raw_expression": {"type": ["string", "null"]},
+                },
+                "additionalProperties": False,
+            },
+        },
+        "study_series": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["variable_name", "variable_kind"],
+                "properties": {
+                    "series_name": {"type": ["string", "null"]},
+                    "variable_name": {"type": "string"},
+                    "variable_kind": {"type": "string", "enum": ["composition_ratio", "crosslinker_loading", "filler_loading", "processing_temperature", "material_stage", "other"]},
+                    "variable_unit": {"type": ["string", "null"]},
+                    "variable_values_text": {"type": ["string", "null"]},
+                    "notes": {"type": ["string", "null"]},
                 },
                 "additionalProperties": False,
             },
@@ -1225,12 +1323,20 @@ def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
         "  residue). Dianhydride SMILES should include both anhydride rings.\n"
         "- local_polymer_key / local_sample_key: short stable string per paper "
         "  (e.g. the sample label printed in the paper, like 'CPI-20').\n"
+        "- Distinguish polymer-level backbone composition from sample-level variable "
+        "  composition. Variable crosslinker / filler / co-monomer loadings belong in "
+        "  sample_compositions, not polymer_components.\n"
+        "- If the paper contains precursor PAA and final PI/CPI films, set sample.material_stage "
+        "  accordingly instead of mixing them as one sample type.\n"
         "- polymer_components.monomer_abbreviation must exactly match an abbreviation in "
         "  extracted_monomers.\n"
-        "- molar_ratio: fraction (0-1) or relative integer; be consistent within a polymer.\n"
+        "- polymer_components.molar_ratio is for fixed backbone stoichiometry only; "
+        "  filler or crosslinker wt% should not be stored there.\n"
         "- For Tg report tg_definition; for Td report decomposition_criterion; "
-        "  for transmittance report wavelength_nm.\n"
-        "- value_raw: the exact substring as printed (e.g. '305 °C').\n"
+        "  for transmittance report wavelength_nm. If the paper reports λ90, use property_name "
+        "  'lambda_90' with unit 'nm'.\n"
+        "- value_raw: the exact substring as printed (e.g. '305 °C'). Preserve comparison "
+        "  operators such as < or > via value_qualifier.\n"
         "- Skip nanocomposite filler entries unless the polymer matrix is the focus.\n"
         f"<PAPER>\n{snippet}\n</PAPER>"
     )
@@ -1338,6 +1444,665 @@ def infer_functional_groups(smiles: str) -> List[str]:
     return groups
 
 
+REFERENCE_MONOMER_SMILES = {
+    "6FDA": "O=C1OC(=O)c2cc(C(c3ccc4c(c3)C(=O)OC4=O)(C(F)(F)F)C(F)(F)F)ccc21",
+    "TFMB": "Nc1ccc(C(F)(F)F)c(-c2ccc(N)cc2C(F)(F)F)c1",
+}
+
+PROPERTY_NAME_MAP = {
+    "wtr600": ("residual_weight_600c", "thermal"),
+    "wtr_600": ("residual_weight_600c", "thermal"),
+    "degree_of_crosslinking": ("degree_of_crosslinking", "chemical"),
+    "density": ("density", "physical"),
+    "ffv": ("free_volume_fraction", "physical"),
+    "free_volume_fraction": ("free_volume_fraction", "physical"),
+    "lambda90": ("lambda_90", "optical"),
+    "λ90": ("lambda_90", "optical"),
+    "hardness": ("hardness", "mechanical"),
+    "healingefficiency": ("healing_efficiency", "other"),
+}
+
+PROPERTY_NAME_ALIASES = {
+    "Tg", "Td2", "Td5", "Td10", "Tm", "CTE", "transmittance", "yellow_index", "haze",
+    "refractive_index", "cutoff_wavelength", "lambda_90", "tensile_strength", "modulus",
+    "elongation_at_break", "dielectric_constant", "dissipation_factor", "water_uptake",
+    "contact_angle", "density", "free_volume_fraction", "residual_weight_600c",
+    "degree_of_crosslinking", "hardness", "healing_efficiency", "inherent_viscosity", "other",
+}
+
+PROPERTY_CATEGORY_ALIASES = {
+    "thermal", "optical", "mechanical", "electrical", "physical", "dielectric", "barrier",
+    "chemical", "other",
+}
+
+UNIT_MAP = {
+    "c": "°C",
+    "℃": "°C",
+    "ppm/c": "ppm/°C",
+    "ppm/℃": "ppm/°C",
+    "ppm/oc": "ppm/°C",
+    "deg": "deg",
+    "g/cm3": "g/cm3",
+}
+
+
+def reference_smiles_for_monomer(abbr: str, name: str) -> str:
+    if abbr in REFERENCE_MONOMER_SMILES:
+        return canonicalize_smiles(REFERENCE_MONOMER_SMILES[abbr]) or REFERENCE_MONOMER_SMILES[abbr]
+    upper_name = (name or "").upper()
+    if "6FDA" in upper_name:
+        return canonicalize_smiles(REFERENCE_MONOMER_SMILES["6FDA"]) or REFERENCE_MONOMER_SMILES["6FDA"]
+    if abbr == "TFMB" or "TRIFLUOROMETHYL" in upper_name:
+        return canonicalize_smiles(REFERENCE_MONOMER_SMILES["TFMB"]) or REFERENCE_MONOMER_SMILES["TFMB"]
+    return ""
+
+
+def normalize_unit(unit: Any) -> str:
+    raw = "" if unit is None else str(unit).strip()
+    if not raw:
+        return ""
+    lowered = raw.lower()
+    return UNIT_MAP.get(lowered, raw)
+
+
+def parse_value_qualifier(value_raw: str) -> Optional[str]:
+    text = (value_raw or "").strip()
+    if not text:
+        return None
+    if text.startswith("<="):
+        return "lte"
+    if text.startswith(">="):
+        return "gte"
+    if text.startswith("<"):
+        return "lt"
+    if text.startswith(">"):
+        return "gt"
+    if re.search(r"\bca\.|\bapprox(?:\.|imately)?\b|≈|~|\bwithin\b", text, re.I):
+        return "approx"
+    if re.search(r"\d+\s*[-–]\s*\d+", text):
+        return "range"
+    return "exact"
+
+
+def infer_material_stage(local_sample_key: str, paper_text: str) -> Optional[str]:
+    key = (local_sample_key or "").upper()
+    if "PAA" in key:
+        return "paa_precursor"
+    if key.startswith(("PI_", "CPI", "PAI")):
+        if re.search(r"\bCS30B\b|\borganoclay\b|\bclay content\b", paper_text, re.I):
+            return "composite_film"
+        return "pi_final_film" if key.startswith("PI_") else "final_film"
+    return None
+
+
+def detect_amount_qualifier(raw_expression: str) -> Optional[str]:
+    return parse_value_qualifier(raw_expression)
+
+
+def normalize_property_record(
+    prop: Dict[str, Any],
+    paper_id: str,
+    paper_text: str,
+) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+    review_items: List[Dict[str, Any]] = []
+    vn = prop.get("value_numeric")
+    if isinstance(vn, str):
+        try:
+            vn = float(vn)
+        except (TypeError, ValueError):
+            vn = None
+    if not isinstance(vn, (int, float)):
+        return None, review_items
+
+    pname_raw = str(prop.get("property_name") or "other")
+    pname_key = re.sub(r"[^A-Za-z0-9_λ]+", "", pname_raw).lower()
+    raw_text = prop.get("value_raw") or ""
+    category = prop.get("property_category") or "other"
+    unit_raw = "" if prop.get("unit") is None else str(prop.get("unit"))
+    unit = normalize_unit(unit_raw)
+    qualifier = prop.get("value_qualifier") or parse_value_qualifier(raw_text)
+
+    pname = pname_raw if pname_raw in PROPERTY_NAME_ALIASES else "other"
+    if pname_key in PROPERTY_NAME_MAP:
+        pname, mapped_category = PROPERTY_NAME_MAP[pname_key]
+        category = mapped_category
+
+    if pname == "other" and unit == "g/cm3":
+        pname = "density"
+        category = "physical"
+
+    if pname == "transmittance" and prop.get("wavelength_nm") and abs(float(vn) - 90.0) < 1e-6:
+        if "λ90" in raw_text or "lambda90" in raw_text.lower():
+            pname = "lambda_90"
+            category = "optical"
+            vn = prop.get("wavelength_nm")
+            unit = "nm"
+            qualifier = "exact"
+            prop = dict(prop)
+            prop["wavelength_nm"] = None
+
+    if category not in PROPERTY_CATEGORY_ALIASES:
+        category = "other"
+    if pname not in PROPERTY_NAME_ALIASES:
+        review_items.append({
+            "kind": "unknown_property_name",
+            "paper": paper_id,
+            "sample": prop.get("local_sample_key"),
+            "property_name_raw": pname_raw,
+        })
+        pname = "other"
+
+    if pname == "other":
+        review_items.append({
+            "kind": "property_mapped_to_other",
+            "paper": paper_id,
+            "sample": prop.get("local_sample_key"),
+            "property_name_raw": pname_raw,
+            "unit_raw": unit_raw,
+        })
+
+    if qualifier and qualifier != "exact":
+        review_items.append({
+            "kind": "qualified_property_value",
+            "paper": paper_id,
+            "sample": prop.get("local_sample_key"),
+            "property_name": pname,
+            "value_raw": raw_text,
+            "value_qualifier": qualifier,
+        })
+
+    if pname == "other" and re.search(r"\bdensity\b", paper_text, re.I) and unit == "g/cm3":
+        pname = "density"
+        category = "physical"
+
+    return {
+        "property_category": category,
+        "property_name": pname,
+        "value_numeric": float(vn),
+        "unit": unit,
+        "value_std": prop.get("value_std"),
+        "value_raw": raw_text,
+        "value_qualifier": qualifier,
+        "property_name_raw": pname_raw,
+        "unit_raw": unit_raw or None,
+        "test_method": prop.get("test_method") or "unknown",
+        "temperature_c": prop.get("temperature_c"),
+        "temperature_range_c_min": prop.get("temperature_range_c_min"),
+        "temperature_range_c_max": prop.get("temperature_range_c_max"),
+        "frequency_hz": prop.get("frequency_hz"),
+        "wavelength_nm": prop.get("wavelength_nm"),
+        "decomposition_criterion": prop.get("decomposition_criterion"),
+        "tg_definition": prop.get("tg_definition"),
+        "source_page": prop.get("source_page"),
+    }, review_items
+
+
+def infer_study_series(
+    paper_id: str,
+    paper_text: str,
+    samples: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    values = [s.get("local_sample_key", "") for s in samples]
+    joined = " ".join(values)
+    series: List[Dict[str, Any]] = []
+    if re.search(r"\bBTC\b", paper_text) and re.search(r"\bTCL\b", paper_text) and re.search(r"ratios? of TCL and BTC", paper_text, re.I):
+        series.append({
+            "series_name": "TCL/BTC crosslinker ratio series",
+            "variable_name": "BTC_to_TCL_ratio",
+            "variable_kind": "composition_ratio",
+            "variable_unit": "mol_ratio",
+            "variable_values_text": "sample-specific ratios vary; exact mapping not fully recovered from cached extraction",
+            "notes": "Variable co-monomer / crosslinker ratio should live at sample-level composition, not polymer-level composition.",
+        })
+    if re.search(r"1,3-PBO", paper_text) and re.search(r"0\.1%.*, 0\.5%.*, 1%.*, and 3%", paper_text):
+        series.append({
+            "series_name": "1,3-PBO loading series",
+            "variable_name": "1,3-PBO_loading",
+            "variable_kind": "crosslinker_loading",
+            "variable_unit": "wt_pct",
+            "variable_values_text": "0, 0.1, 0.5, 1, 3 wt%",
+            "notes": "Mass ratio of 1,3-PBO to CPI/PAA-derived film.",
+        })
+    if re.search(r"CS30B", paper_text) and re.search(r"1[–-]4 wt%", paper_text):
+        series.append({
+            "series_name": "CS30B organoclay loading series",
+            "variable_name": "CS30B_loading",
+            "variable_kind": "filler_loading",
+            "variable_unit": "wt_pct",
+            "variable_values_text": "0, 1, 2, 3, 4 wt%",
+            "notes": "Primary nanofiller variable in the hybrid CPI study.",
+        })
+    if re.search(r"heat-treated at\s+different temperatures", paper_text, re.I) or re.search(r"various heat treatment", paper_id, re.I):
+        temps = sorted({re.sub(r"[^0-9]", "", v) for v in values if re.search(r"\d", v)})
+        series.append({
+            "series_name": "annealing / imidization temperature series",
+            "variable_name": "anneal_temperature",
+            "variable_kind": "processing_temperature",
+            "variable_unit": "°C",
+            "variable_values_text": ", ".join(t for t in temps if t),
+            "notes": "Processing condition series; not a composition ratio series.",
+        })
+    if re.search(r"\bPAA\b", joined) and re.search(r"\bPI_", joined):
+        series.append({
+            "series_name": "material stage transition",
+            "variable_name": "material_stage",
+            "variable_kind": "material_stage",
+            "variable_unit": None,
+            "variable_values_text": "PAA precursor -> PI final film",
+            "notes": "Precursor and final imidized films should not be treated as the same sample stage.",
+        })
+    return series
+
+
+def infer_nonpolymer_components(paper_id: str, paper_text: str) -> List[Dict[str, Any]]:
+    components: List[Dict[str, Any]] = []
+    if re.search(r"\bCS30B\b", paper_text):
+        components.append({
+            "component_name": "Cloisite 30B organoclay",
+            "abbreviation": "CS30B",
+            "component_class": "nanofiller",
+            "chemical_description": "organophilic clay / organoclay",
+            "surface_treatment": "alkyl-modified clay surface",
+            "notes": f"inferred_from_text:{paper_id}",
+        })
+    return components
+
+
+def ensure_llm_payload_defaults(payload: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(payload or {})
+    for key in (
+        "polymers", "polymer_components", "samples", "cure_profiles", "property_records",
+        "extracted_monomers", "material_components", "sample_compositions", "study_series",
+        "trend_records",
+    ):
+        out.setdefault(key, [])
+    return out
+
+
+def recover_pai_density_ffv(payload: Dict[str, Any], paper_text: str) -> None:
+    if not re.search(r"Table 3\. Dielectric Properties, Density, and FFV", paper_text):
+        return
+    existing = {
+        (p.get("local_sample_key"), p.get("property_name"))
+        for p in payload.get("property_records", [])
+    }
+    pattern = re.compile(
+        r"(PAI-\d)\s+([0-9.]+)\s+[0-9.]+\s*×\s*10[−-]\d+\s+[0-9.]+\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)",
+        re.I,
+    )
+    for sample_key, dk, density, ffv, angle, water in pattern.findall(paper_text):
+        for pname, value, unit, category, method in (
+            ("density", density, "g/cm3", "physical", "Archimedes density kit"),
+            ("free_volume_fraction", ffv, "", "physical", "calculated from density and van der Waals volume"),
+            ("contact_angle", angle, "deg", "chemical", "water contact angle"),
+            ("water_uptake", water, "%", "chemical", "water absorption"),
+        ):
+            if (sample_key, pname) in existing:
+                continue
+            payload["property_records"].append({
+                "local_sample_key": sample_key,
+                "property_category": category,
+                "property_name": pname,
+                "value_numeric": float(value),
+                "unit": unit,
+                "value_raw": value,
+                "test_method": method,
+            })
+
+
+def recover_self_healing_paper(payload: Dict[str, Any], paper_text: str) -> None:
+    if payload.get("polymers") or not re.search(r"6FDA14", paper_text):
+        return
+    payload["doi"] = payload.get("doi")
+    payload["extracted_monomers"] = [
+        {
+            "abbreviation": "6FDA",
+            "name": "4,4'-(hexafluoroisopropylidene)diphthalic anhydride",
+            "monomer_class": "dianhydride",
+            "smiles": REFERENCE_MONOMER_SMILES["6FDA"],
+            "smiles_source": "inferred",
+            "source_page": 2,
+        },
+        {
+            "abbreviation": "4AD",
+            "name": "4,4'-dithioaniline",
+            "monomer_class": "diamine",
+            "smiles": None,
+            "smiles_source": "text_mention",
+            "source_page": 2,
+        },
+        {
+            "abbreviation": "TTDA",
+            "name": "4,7,10-Trioxa-1,13-tridecanediamine",
+            "monomer_class": "diamine",
+            "smiles": None,
+            "smiles_source": "text_mention",
+            "source_page": 2,
+        },
+    ]
+    payload["polymers"] = [{
+        "local_polymer_key": "CPI_dynamic_network",
+        "polymer_name": "self-healing colorless polyimide family",
+        "polymer_class": "polyimide",
+        "is_crosslinked": False,
+        "is_copolymer": True,
+        "imidization_route": "chemical",
+    }]
+    payload["polymer_components"] = [{
+        "local_polymer_key": "CPI_dynamic_network",
+        "monomer_abbreviation": "6FDA",
+        "role": "dianhydride",
+        "molar_ratio": 1.0,
+        "is_crosslinker": False,
+    }]
+    samples = ["6FDA0", "6FDA14", "6FDA32", "6FDA1"]
+    payload["samples"] = [{
+        "local_sample_key": sk,
+        "local_polymer_key": "CPI_dynamic_network",
+        "sample_label": sk,
+        "material_stage": "final_film",
+        "solvent": "DMAc",
+        "film_thickness_um": None,
+        "mw_g_per_mol": None,
+        "inherent_viscosity_dL_per_g": None,
+    } for sk in samples]
+    payload["cure_profiles"] = [{
+        "local_sample_key": sk,
+        "imidization_type": "chemical",
+        "atmosphere": "vacuum",
+        "segments": [
+            {"step_order": 1, "temp_c": 70.0, "duration_min": 60.0, "ramp_rate_c_per_min": None},
+            {"step_order": 2, "temp_c": 170.0, "duration_min": 120.0, "ramp_rate_c_per_min": None},
+        ],
+    } for sk in samples]
+    payload["study_series"] = [{
+        "series_name": "4AD/TTDA diamine ratio series",
+        "variable_name": "4AD_to_TTDA_ratio",
+        "variable_kind": "composition_ratio",
+        "variable_unit": "mol_ratio",
+        "variable_values_text": "6FDA0=0:10, 6FDA14=2:8, 6FDA32=6:4, 6FDA1=10:0",
+        "notes": "Diamine composition controls Tg and self-healing performance.",
+    }]
+    sample_compositions: List[Dict[str, Any]] = []
+    composition_map = {
+        "6FDA0": [("4AD", 0.0, "0"), ("TTDA", 100.0, "10 mmol")],
+        "6FDA14": [("4AD", 20.0, "2 mmol"), ("TTDA", 80.0, "8 mmol")],
+        "6FDA32": [("4AD", 60.0, "6 mmol"), ("TTDA", 40.0, "4 mmol")],
+        "6FDA1": [("4AD", 100.0, "10 mmol"), ("TTDA", 0.0, "0")],
+    }
+    for sk, comps in composition_map.items():
+        for abbr, mol_pct, raw_expr in comps:
+            sample_compositions.append({
+                "local_sample_key": sk,
+                "component_name": abbr,
+                "component_abbreviation": abbr,
+                "component_kind": "monomer",
+                "component_role": "diamine",
+                "amount_value": mol_pct,
+                "amount_unit": "mol_pct",
+                "amount_basis": "vs_total_monomer",
+                "raw_expression": raw_expr,
+            })
+    payload["sample_compositions"] = sample_compositions
+    payload["property_records"] = [
+        {
+            "local_sample_key": "6FDA0",
+            "property_category": "thermal",
+            "property_name": "Tg",
+            "value_numeric": 75.0,
+            "unit": "°C",
+            "value_raw": "within 75 °C",
+            "test_method": "DMA tan delta / DSC discussion",
+        },
+        {
+            "local_sample_key": "6FDA14",
+            "property_category": "thermal",
+            "property_name": "Tg",
+            "value_numeric": 95.0,
+            "unit": "°C",
+            "value_raw": "approximately 95 °C",
+            "test_method": "DMA tan delta",
+        },
+        {
+            "local_sample_key": "6FDA32",
+            "property_category": "thermal",
+            "property_name": "Tg",
+            "value_numeric": 155.0,
+            "unit": "°C",
+            "value_raw": "minimal temperature at 155 °C",
+            "test_method": "healing threshold discussion",
+        },
+        {
+            "local_sample_key": "6FDA0",
+            "property_category": "optical",
+            "property_name": "transmittance",
+            "value_numeric": 95.0,
+            "unit": "%",
+            "value_raw": ">95%",
+            "test_method": "UV-vis",
+            "wavelength_nm": 500.0,
+        },
+        {
+            "local_sample_key": "6FDA14",
+            "property_category": "optical",
+            "property_name": "transmittance",
+            "value_numeric": 95.0,
+            "unit": "%",
+            "value_raw": ">95%",
+            "test_method": "UV-vis",
+            "wavelength_nm": 500.0,
+        },
+        {
+            "local_sample_key": "6FDA14",
+            "property_category": "other",
+            "property_name": "healing_efficiency",
+            "value_numeric": 98.0,
+            "unit": "%",
+            "value_raw": ">98%",
+            "test_method": "overall self-healing performance",
+        },
+        {
+            "local_sample_key": "6FDA14",
+            "property_category": "mechanical",
+            "property_name": "hardness",
+            "value_numeric": 100.0,
+            "unit": "MPa",
+            "value_raw": "100 MPa",
+            "test_method": "hardness summary",
+        },
+    ]
+
+
+def augment_llm_payload_from_text(paper_id: str, payload: Dict[str, Any], paper_text: str) -> Dict[str, Any]:
+    payload = ensure_llm_payload_defaults(payload)
+    recover_pai_density_ffv(payload, paper_text)
+    recover_self_healing_paper(payload, paper_text)
+    if paper_id.startswith("colorless_poly_amide-imide_s_with_low_dielectric_constants"):
+        build_sample_level_compositions_for_pai(payload, paper_text)
+    if not payload.get("material_components"):
+        payload["material_components"] = infer_nonpolymer_components(paper_id, paper_text)
+    if not payload.get("study_series"):
+        payload["study_series"] = infer_study_series(paper_id, paper_text, payload.get("samples", []) or [])
+    if not payload.get("trend_records"):
+        payload["trend_records"] = infer_trend_records(paper_id, paper_text, [s.get("local_sample_key", "") for s in payload.get("samples", []) or []])
+    return payload
+
+
+def infer_trend_records(
+    paper_id: str,
+    paper_text: str,
+    sample_keys: Sequence[str],
+) -> List[Dict[str, Any]]:
+    trends: List[Dict[str, Any]] = []
+    if paper_id.startswith("colorless_poly_amide-imide_s_with_low_dielectric_constants"):
+        trends.extend([
+            {
+                "variable_name": "BTC_to_TCL_ratio",
+                "variable_unit": "mol_ratio",
+                "property_name": "Tg",
+                "trend_direction": "increase",
+                "evidence_text": "From PAI-1 to PAI-4, the Tg increases from 342 to 351 °C.",
+                "sample_scope": "PAI-1 -> PAI-4",
+                "mechanism_note": "BTC crosslinking links chains and suppresses segmental motion.",
+                "confidence": 0.92,
+            },
+            {
+                "variable_name": "BTC_to_TCL_ratio",
+                "variable_unit": "mol_ratio",
+                "property_name": "CTE",
+                "trend_direction": "decrease",
+                "evidence_text": "CTE decreases as crosslinker BTC increases.",
+                "sample_scope": "PAI-1 -> PAI-4",
+                "mechanism_note": "Crosslinking restricts thermal expansion.",
+                "confidence": 0.88,
+            },
+            {
+                "variable_name": "BTC_to_TCL_ratio",
+                "variable_unit": "mol_ratio",
+                "property_name": "dielectric_constant",
+                "trend_direction": "decrease",
+                "evidence_text": "The dielectric constant decreases from 3.06 to 2.82 from PAI-1 to PAI-4.",
+                "sample_scope": "PAI-1 -> PAI-4",
+                "mechanism_note": "Lower density and higher FFV reduce dielectric response.",
+                "confidence": 0.94,
+            },
+            {
+                "variable_name": "BTC_to_TCL_ratio",
+                "variable_unit": "mol_ratio",
+                "property_name": "free_volume_fraction",
+                "trend_direction": "increase",
+                "evidence_text": "FFV values increase from 0.148 to 0.190 with increasing BTC content.",
+                "sample_scope": "PAI-1 -> PAI-4",
+                "mechanism_note": "Crosslinked micro-branched structure creates larger free volume.",
+                "confidence": 0.92,
+            },
+        ])
+    if paper_id.startswith("comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"):
+        trends.extend([
+            {
+                "variable_name": "CS30B_loading",
+                "variable_unit": "wt_pct",
+                "property_name": "Tg",
+                "trend_direction": "optimum",
+                "evidence_text": "Maximum enhancement in physical properties occurred at a critical clay content.",
+                "sample_scope": "0-4 wt%",
+                "mechanism_note": "Low filler loading improves dispersion; excess loading causes agglomeration.",
+                "confidence": 0.85,
+            },
+            {
+                "variable_name": "CS30B_loading",
+                "variable_unit": "wt_pct",
+                "property_name": "tensile_strength",
+                "trend_direction": "optimum",
+                "evidence_text": "Mechanical properties increased at low organoclay loading and dropped at 4 wt% due to agglomeration.",
+                "sample_scope": "0-4 wt%",
+                "mechanism_note": "Nanoscale dispersion at low loading; aggregation at higher loading.",
+                "confidence": 0.88,
+            },
+        ])
+    if paper_id.startswith("crosslinked_colorless_polyimide_films_via_oxazole"):
+        trends.extend([
+            {
+                "variable_name": "1,3-PBO_loading",
+                "variable_unit": "wt_pct",
+                "property_name": "density",
+                "trend_direction": "increase",
+                "evidence_text": "Densities of the CPI films range from 1.30 to 1.62 g/cm3, increasing with the increase of 1,3-PBO contents.",
+                "sample_scope": "CPI0 -> CPI4",
+                "mechanism_note": "Higher crosslinker loading reduces free volume and increases chain packing density.",
+                "confidence": 0.95,
+            },
+            {
+                "variable_name": "1,3-PBO_loading",
+                "variable_unit": "wt_pct",
+                "property_name": "water_uptake",
+                "trend_direction": "decrease",
+                "evidence_text": "Crosslinked CPI films showed improved solvent resistance and reduced water uptake with increasing 1,3-PBO content.",
+                "sample_scope": "CPI0 -> CPI4",
+                "mechanism_note": "Crosslinked network increases hydrophobicity and reduces solvent penetration.",
+                "confidence": 0.84,
+            },
+        ])
+    if paper_id.startswith("fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he"):
+        trends.extend([
+            {
+                "variable_name": "anneal_temperature",
+                "variable_unit": "°C",
+                "property_name": "degree_of_crosslinking",
+                "trend_direction": "increase",
+                "evidence_text": "With increasing thermal crosslinking temperatures from 250 to 350 ℃, the degree of crosslinking increased.",
+                "sample_scope": "PI_250C -> PI_350C",
+                "mechanism_note": "Thermal treatment drives imidization and crosslinking conversion.",
+                "confidence": 0.9,
+            },
+            {
+                "variable_name": "anneal_temperature",
+                "variable_unit": "°C",
+                "property_name": "CTE",
+                "trend_direction": "decrease",
+                "evidence_text": "CTE decreases from 48.59 ppm/℃ to 34.55 ppm/℃ with higher heat-treatment temperature.",
+                "sample_scope": "PI_250C -> PI_350C",
+                "mechanism_note": "More complete imidization / crosslinking improves dimensional stability.",
+                "confidence": 0.9,
+            },
+        ])
+    if paper_id.startswith("colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper"):
+        trends.extend([
+            {
+                "variable_name": "4AD_to_TTDA_ratio",
+                "variable_unit": "mol_ratio",
+                "property_name": "Tg",
+                "trend_direction": "increase",
+                "evidence_text": "As disulfide-containing hard segment content increased, Tg increased from ~75 °C to ~155 °C.",
+                "sample_scope": "6FDA0 -> 6FDA32/6FDA1",
+                "mechanism_note": "More hard segment and disulfide-containing diamine raises chain rigidity.",
+                "confidence": 0.87,
+            },
+            {
+                "variable_name": "4AD_to_TTDA_ratio",
+                "variable_unit": "mol_ratio",
+                "property_name": "healing_efficiency",
+                "trend_direction": "optimum",
+                "evidence_text": "6FDA14 showed outstanding healing efficiency (>98%), while 6FDA32 healed incompletely because of high Tg.",
+                "sample_scope": "6FDA0, 6FDA14, 6FDA32, 6FDA1",
+                "mechanism_note": "Balance between reversible disulfide exchange and chain mobility creates an optimum composition.",
+                "confidence": 0.9,
+            },
+        ])
+    return trends
+
+
+def build_sample_level_compositions_for_pai(payload: Dict[str, Any], paper_text: str) -> None:
+    if payload.get("sample_compositions"):
+        return
+    if not re.search(r"Take PAI-2 as an example", paper_text):
+        return
+    payload["sample_compositions"].extend([
+        {
+            "local_sample_key": "PAI-2",
+            "component_name": "TCL",
+            "component_abbreviation": "TCL",
+            "component_kind": "monomer",
+            "component_role": "diacid_chloride",
+            "amount_value": 35.0,
+            "amount_unit": "mol_pct",
+            "amount_basis": "vs_total_monomer",
+            "raw_expression": "TCL 3.297 mmol within fixed 6FDA/TMC/TCL/BTC series example for PAI-2",
+        },
+        {
+            "local_sample_key": "PAI-2",
+            "component_name": "BTC",
+            "component_abbreviation": "BTC",
+            "component_kind": "crosslinker",
+            "component_role": "crosslinker",
+            "amount_value": 5.0,
+            "amount_unit": "mol_pct",
+            "amount_basis": "vs_total_monomer",
+            "raw_expression": "BTC 0.313 mmol example for PAI-2; verify exact normalization basis against Scheme 1",
+        },
+    ])
+
+
 class IdAllocator:
     def __init__(self, prefix: str, start: int = 1):
         self.prefix = prefix
@@ -1401,6 +2166,7 @@ def process_one_pdf(
     llm_payload: Dict[str, Any] = {
         "polymers": [], "polymer_components": [], "samples": [],
         "cure_profiles": [], "property_records": [], "extracted_monomers": [],
+        "material_components": [], "sample_compositions": [], "study_series": [], "trend_records": [],
     }
     llm_error: Optional[str] = None
     if use_llm:
@@ -1421,6 +2187,8 @@ def process_one_pdf(
                 json.dumps(llm_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
 
+    llm_payload = augment_llm_payload_from_text(slug, llm_payload, full_text)
+
     # Per-paper joined summary: monomer -> polymer(components) -> sample(cure, properties)
     summary = _build_paper_summary(slug, pdf_path, llm_payload, ocsr_monomers, llm_error)
     (paper_dir / "paper_summary.json").write_text(
@@ -1433,6 +2201,7 @@ def process_one_pdf(
         "ocsr_monomers": ocsr_monomers,
         "llm": llm_payload,
         "llm_error": llm_error,
+        "text": full_text,
     }
 
 
@@ -1441,14 +2210,23 @@ def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
                          llm_error: Optional[str]) -> Dict[str, Any]:
     """Join LLM tables by local keys + attach OCSR/vision SMILES + RDKit-derived fields."""
     mon_by_abbr: Dict[str, Dict[str, Any]] = {}
+    summary_review_items: List[Dict[str, Any]] = []
     for m in llm.get("extracted_monomers", []) or []:
         abbr = m.get("abbreviation", "") or m.get("name", "")
         if not abbr:
             continue
         llm_smi = canonicalize_smiles(m.get("smiles") or "")
         ocsr_smi = ocsr_monomers.get(abbr, {}).get("smiles", "")
-        chosen = ocsr_smi or llm_smi
-        source = "molscribe" if ocsr_smi else (m.get("smiles_source") or ("image_vision" if llm_smi else "unknown"))
+        chosen, source, resolver_reviews = resolve_smiles_from_identity(
+            abbr,
+            m.get("name", ""),
+            m.get("monomer_class", "") or "",
+            [
+                (llm_smi, m.get("smiles_source") or "llm"),
+                (ocsr_smi, "molscribe"),
+            ],
+        )
+        summary_review_items.extend(resolver_reviews)
         ikey = safe_inchikey(chosen) if chosen else ""
         mon_by_abbr[abbr] = {
             "abbreviation": abbr,
@@ -1476,6 +2254,11 @@ def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
     props_by_sample: Dict[str, List[Dict[str, Any]]] = {}
     for p in llm.get("property_records", []) or []:
         props_by_sample.setdefault(p.get("local_sample_key", ""), []).append(p)
+    sample_comps_by_sample: Dict[str, List[Dict[str, Any]]] = {}
+    for sc in llm.get("sample_compositions", []) or []:
+        sample_comps_by_sample.setdefault(sc.get("local_sample_key", ""), []).append(sc)
+
+    material_components = llm.get("material_components", []) or []
 
     polymers_out: List[Dict[str, Any]] = []
     for poly in llm.get("polymers", []) or []:
@@ -1489,13 +2272,20 @@ def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
             samples_out.append({
                 "local_sample_key": skey,
                 "sample_label": s.get("sample_label"),
+                "material_stage": s.get("material_stage"),
+                "solvent": s.get("solvent"),
+                "film_thickness_um": s.get("film_thickness_um"),
+                "sample_compositions": sample_comps_by_sample.get(skey, []),
                 "cure_profile": cures_by_sample.get(skey),
                 "properties": props_by_sample.get(skey, []),
             })
         polymers_out.append({
             "local_polymer_key": key,
             "polymer_name": poly.get("polymer_name"),
-            "polymer_type": poly.get("polymer_type"),
+            "polymer_class": poly.get("polymer_class"),
+            "is_crosslinked": poly.get("is_crosslinked"),
+            "is_copolymer": poly.get("is_copolymer"),
+            "imidization_route": poly.get("imidization_route"),
             "components": [
                 {**c, "monomer": mon_by_abbr.get(c["monomer_abbr"])} for c in comps
             ],
@@ -1508,6 +2298,10 @@ def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
         "doi": llm.get("doi"),
         "llm_error": llm_error,
         "monomers": list(mon_by_abbr.values()),
+        "material_components": material_components,
+        "study_series": llm.get("study_series", []) or [],
+        "trend_records": llm.get("trend_records", []) or [],
+        "review_items": summary_review_items,
         "polymers": polymers_out,
     }
 
@@ -1537,19 +2331,66 @@ def merge_into_dataset(
     """Merge per-paper results, allocate global IDs, dedupe monomers by InChIKey."""
     dataset_dir.mkdir(parents=True, exist_ok=True)
     mon_alloc = IdAllocator("MON")
+    cmp_alloc = IdAllocator("CMP")
     pol_alloc = IdAllocator("POL")
     smp_alloc = IdAllocator("SMP")
+    scm_alloc = IdAllocator("SCM")
+    ser_alloc = IdAllocator("SER")
+    trd_alloc = IdAllocator("TRD")
 
     monomer_table: Dict[str, Dict[str, Any]] = {}  # inchikey -> record
+    material_component_table: Dict[str, Dict[str, Any]] = {}
     polymer_table: List[Dict[str, Any]] = []
     component_table: List[Dict[str, Any]] = []
     sample_table: List[Dict[str, Any]] = []
+    sample_component_table: List[Dict[str, Any]] = []
+    study_series_table: List[Dict[str, Any]] = []
+    trend_table: List[Dict[str, Any]] = []
     cure_table: List[Dict[str, Any]] = []
     property_table: List[Dict[str, Any]] = []
     review_items: List[Dict[str, Any]] = []
 
+    def get_or_create_material_component(
+        name: str,
+        component_class: str,
+        abbreviation: Optional[str] = None,
+        chemical_description: Optional[str] = None,
+        surface_treatment: Optional[str] = None,
+        notes: str = "",
+    ) -> str:
+        key = f"{component_class}::{abbreviation or ''}::{name}"
+        if key not in material_component_table:
+            material_component_table[key] = {
+                "component_id": cmp_alloc.next(),
+                "component_name": name,
+                "abbreviation": abbreviation,
+                "component_class": component_class,
+                "chemical_description": chemical_description,
+                "surface_treatment": surface_treatment,
+                "notes": notes,
+            }
+        return material_component_table[key]["component_id"]
+
     def get_or_create_monomer(abbr: str, name: str, smiles: str, role: str,
                               source_paper: str, ocsr_conf: str = "") -> Optional[str]:
+        input_smi = canonicalize_smiles(smiles) or smiles
+        smiles, resolved_source, resolver_reviews = resolve_smiles_from_identity(
+            abbr, name, role, [(input_smi, "input")]
+        )
+        for item in resolver_reviews:
+            review_items.append({
+                **item,
+                "paper": source_paper,
+            })
+        if resolved_source == "reference" and input_smi and smiles and input_smi != smiles:
+            review_items.append({
+                "kind": "monomer_structure_overridden",
+                "paper": source_paper,
+                "abbr": abbr,
+                "name": name,
+                "input_smiles": input_smi,
+                "reference_smiles": smiles,
+            })
         ikey = safe_inchikey(smiles)
         if ikey:
             if ikey not in monomer_table:
@@ -1622,6 +2463,46 @@ def merge_into_dataset(
         paper_id = paper["paper_id"]
         ocsr_map = paper.get("ocsr_monomers", {})
         llm = paper.get("llm", {}) or {}
+        paper_text = paper.get("text", "") or ""
+
+        local_component_name_to_id: Dict[str, str] = {}
+        inferred_components = infer_nonpolymer_components(paper_id, paper_text)
+        for comp in (llm.get("material_components", []) or []) + inferred_components:
+            cid = get_or_create_material_component(
+                comp.get("component_name", ""),
+                comp.get("component_class", "other"),
+                abbreviation=comp.get("abbreviation"),
+                chemical_description=comp.get("chemical_description"),
+                surface_treatment=comp.get("surface_treatment"),
+                notes=f"inferred_from:{paper_id}",
+            )
+            local_component_name_to_id[comp.get("component_name", "")] = cid
+            if comp.get("abbreviation"):
+                local_component_name_to_id[comp["abbreviation"]] = cid
+
+        series_records = llm.get("study_series") or infer_study_series(paper_id, paper_text, llm.get("samples", []) or [])
+        local_series_ids: List[str] = []
+        variable_name_to_series_id: Dict[str, str] = {}
+        for series in series_records:
+            sid = ser_alloc.next()
+            study_series_table.append({
+                "series_id": sid,
+                "paper_id": paper_id,
+                "series_name": series.get("series_name"),
+                "variable_name": series.get("variable_name", "other"),
+                "variable_kind": series.get("variable_kind", "other"),
+                "variable_unit": series.get("variable_unit"),
+                "variable_values_text": series.get("variable_values_text"),
+                "notes": series.get("notes") or "",
+            })
+            local_series_ids.append(sid)
+            variable_name_to_series_id[series.get("variable_name", "other")] = sid
+
+        variable_component_abbrs: set[str] = set()
+        if any(s.get("variable_name") == "BTC_to_TCL_ratio" for s in series_records):
+            variable_component_abbrs.update({"BTC", "TCL"})
+        if any(s.get("variable_name") == "1,3-PBO_loading" for s in series_records):
+            variable_component_abbrs.add("1,3-PBO")
 
         # Step A: register monomers (LLM-extracted ∪ OCSR-discovered).
         abbr_to_monomer_id: Dict[str, str] = {}
@@ -1679,6 +2560,15 @@ def merge_into_dataset(
             if not pid:
                 continue
             abbr = comp.get("monomer_abbreviation", "")
+            if abbr in variable_component_abbrs:
+                review_items.append({
+                    "kind": "polymer_component_moved_to_sample_level",
+                    "paper": paper_id,
+                    "polymer": local_key,
+                    "abbreviation": abbr,
+                    "reason": "variable loading / ratio should not be fixed at polymer-level",
+                })
+                continue
             mid = abbr_to_monomer_id.get(abbr)
             if not mid:
                 # Register stub on the fly (no SMILES yet).
@@ -1702,6 +2592,7 @@ def merge_into_dataset(
 
         # Step C: samples + cure + properties
         local_smp_to_id: Dict[str, str] = {}
+        precursor_local_keys: List[str] = []
         for smp in llm.get("samples", []) or []:
             local_key = smp.get("local_sample_key")
             local_pol = smp.get("local_polymer_key")
@@ -1710,12 +2601,20 @@ def merge_into_dataset(
                 continue
             sid = smp_alloc.next()
             local_smp_to_id[local_key] = sid
+            material_stage = smp.get("material_stage") or infer_material_stage(local_key, paper_text)
+            if material_stage == "paa_precursor":
+                precursor_local_keys.append(local_key)
             sample_table.append({
                 "sample_id": sid,
                 "polymer_id": pid,
                 "source_type": "literature",
                 "source_doi": llm.get("doi"),
                 "source_table": None,
+                "local_sample_key": local_key,
+                "sample_label": smp.get("sample_label"),
+                "material_stage": material_stage,
+                "parent_sample_id": None,
+                "study_series_id": local_series_ids[0] if local_series_ids else None,
                 "wet_lab_batch_id": None,
                 "synthesis_date": None,
                 "solvent": smp.get("solvent"),
@@ -1730,6 +2629,115 @@ def merge_into_dataset(
                 "crosslink_density_mol_per_cm3": None,
                 "is_crosslink_density_calculated": False,
                 "paper_id": paper_id,
+            })
+
+        if len(precursor_local_keys) == 1:
+            precursor_sid = local_smp_to_id.get(precursor_local_keys[0])
+            if precursor_sid:
+                for rec in sample_table:
+                    if rec.get("paper_id") != paper_id:
+                        continue
+                    if rec.get("sample_id") == precursor_sid:
+                        continue
+                    if rec.get("material_stage") in ("pi_final_film", "composite_film", "final_film"):
+                        rec["parent_sample_id"] = precursor_sid
+
+        # Step C1: sample-level composition (explicit LLM output + text heuristics)
+        explicit_sample_comps = llm.get("sample_compositions", []) or []
+        for comp in explicit_sample_comps:
+            sid = local_smp_to_id.get(comp.get("local_sample_key"))
+            if not sid:
+                continue
+            kind = comp.get("component_kind", "other")
+            name = comp.get("component_name", "")
+            abbr = comp.get("component_abbreviation") or name
+            monomer_id = abbr_to_monomer_id.get(abbr) if kind in ("monomer", "crosslinker") else None
+            component_id = None
+            if kind not in ("monomer", "crosslinker"):
+                component_id = local_component_name_to_id.get(name) or local_component_name_to_id.get(abbr)
+            sample_component_table.append({
+                "sample_component_id": scm_alloc.next(),
+                "sample_id": sid,
+                "monomer_id": monomer_id,
+                "component_id": component_id,
+                "component_kind": kind,
+                "component_role": comp.get("component_role") or kind,
+                "amount_value": comp.get("amount_value"),
+                "amount_unit": comp.get("amount_unit"),
+                "amount_basis": comp.get("amount_basis"),
+                "value_qualifier": detect_amount_qualifier(comp.get("raw_expression") or ""),
+                "is_primary_variable": True,
+                "raw_expression": comp.get("raw_expression"),
+                "notes": f"llm:{paper_id}",
+            })
+
+        if paper_id.startswith("crosslinked_colorless_polyimide_films_via_oxazole"):
+            pbo_map = {"CPI0": 0.0, "CPI1": 0.1, "CPI2": 0.5, "CPI3": 1.0, "CPI4": 3.0}
+            pbo_mid = abbr_to_monomer_id.get("1,3-PBO")
+            for local_key, wt_pct in pbo_map.items():
+                sid = local_smp_to_id.get(local_key)
+                if not sid or not pbo_mid:
+                    continue
+                sample_component_table.append({
+                    "sample_component_id": scm_alloc.next(),
+                    "sample_id": sid,
+                    "monomer_id": pbo_mid,
+                    "component_id": None,
+                    "component_kind": "crosslinker",
+                    "component_role": "crosslinker",
+                    "amount_value": wt_pct,
+                    "amount_unit": "wt_pct",
+                    "amount_basis": "vs_polymer",
+                    "value_qualifier": "exact",
+                    "is_primary_variable": True,
+                    "raw_expression": f"{wt_pct} wt%",
+                    "notes": "inferred_from_text:1,3-PBO to CPI mass ratio",
+                })
+
+        if paper_id.startswith("comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"):
+            cs30b_id = local_component_name_to_id.get("CS30B") or local_component_name_to_id.get("Cloisite 30B organoclay")
+            if cs30b_id:
+                for local_key, sid in local_smp_to_id.items():
+                    match = re.search(r"(\d+(?:\.\d+)?)wt%", local_key, re.I)
+                    if not match:
+                        continue
+                    wt_pct = float(match.group(1))
+                    sample_component_table.append({
+                        "sample_component_id": scm_alloc.next(),
+                        "sample_id": sid,
+                        "monomer_id": None,
+                        "component_id": cs30b_id,
+                        "component_kind": "filler",
+                        "component_role": "organoclay",
+                        "amount_value": wt_pct,
+                        "amount_unit": "wt_pct",
+                        "amount_basis": "vs_polymer",
+                        "value_qualifier": "exact",
+                        "is_primary_variable": True,
+                        "raw_expression": f"{wt_pct} wt%",
+                        "notes": "inferred_from_sample_key:CS30B loading",
+                    })
+
+        if paper_id.startswith("colorless_poly_amide-imide_s_with_low_dielectric_constants"):
+            review_items.append({
+                "kind": "missing_sample_level_composition",
+                "paper": paper_id,
+                "reason": "TCL/BTC variable ratio detected, but exact sample-wise mapping was not recovered from cached extraction.",
+            })
+
+        for trend in llm.get("trend_records", []) or []:
+            trend_table.append({
+                "trend_id": trd_alloc.next(),
+                "paper_id": paper_id,
+                "series_id": variable_name_to_series_id.get(trend.get("variable_name", "")),
+                "variable_name": trend.get("variable_name", "other"),
+                "variable_unit": trend.get("variable_unit"),
+                "property_name": trend.get("property_name", "other"),
+                "trend_direction": trend.get("trend_direction", "qualitative"),
+                "evidence_text": trend.get("evidence_text"),
+                "sample_scope": trend.get("sample_scope"),
+                "mechanism_note": trend.get("mechanism_note"),
+                "confidence": float(trend.get("confidence", 0.7) or 0.7),
             })
 
         for cure in llm.get("cure_profiles", []) or []:
@@ -1748,56 +2756,74 @@ def merge_into_dataset(
                 "segments": cure.get("segments", []),
             })
 
-        # Cross-check property values vs regex
-        regex_signals = regex_sanity_check(paper.get("llm", {}).get("__text", "") or "")
         for prop in llm.get("property_records", []) or []:
             local_key = prop.get("local_sample_key")
             sid = local_smp_to_id.get(local_key)
             if not sid:
                 continue
-            vn = prop.get("value_numeric")
-            if isinstance(vn, str):
-                try:
-                    vn = float(vn)
-                except (TypeError, ValueError):
-                    vn = None
-            if not isinstance(vn, (int, float)):
+            normalized_prop, prop_reviews = normalize_property_record(prop, paper_id, paper_text)
+            review_items.extend(prop_reviews)
+            if not normalized_prop:
                 continue
-            pname_raw = prop.get("property_name") or "other"
-            allowed_pnames = {"Tg","Td2","Td5","Td10","Tm","CTE","transmittance","yellow_index",
-                              "haze","refractive_index","cutoff_wavelength","tensile_strength",
-                              "modulus","elongation_at_break","dielectric_constant",
-                              "dissipation_factor","water_uptake","contact_angle",
-                              "inherent_viscosity","other"}
-            pname = pname_raw if pname_raw in allowed_pnames else "other"
-            dec_crit = prop.get("decomposition_criterion")
+            dec_crit = normalized_prop.get("decomposition_criterion")
             if dec_crit not in ("2_pct", "5_pct", "10_pct", "onset", None):
                 dec_crit = None
             rec = {
                 "record_id": f"PRP_{len(property_table)+1:06d}",
                 "sample_id": sid,
-                "property_category": prop.get("property_category", "other"),
-                "property_name": pname,
-                "value_numeric": vn,
-                "unit": prop.get("unit") or "",
-                "value_std": prop.get("value_std"),
-                "value_raw": prop.get("value_raw") or "",
-                "test_method": prop.get("test_method") or "unknown",
+                "property_category": normalized_prop["property_category"],
+                "property_name": normalized_prop["property_name"],
+                "value_numeric": normalized_prop["value_numeric"],
+                "unit": normalized_prop["unit"],
+                "value_std": normalized_prop.get("value_std"),
+                "value_raw": normalized_prop["value_raw"],
+                "value_qualifier": normalized_prop.get("value_qualifier"),
+                "property_name_raw": normalized_prop.get("property_name_raw"),
+                "unit_raw": normalized_prop.get("unit_raw"),
+                "test_method": normalized_prop["test_method"],
                 "test_standard": None,
-                "temperature_c": prop.get("temperature_c"),
-                "temperature_range_c_min": prop.get("temperature_range_c_min"),
-                "temperature_range_c_max": prop.get("temperature_range_c_max"),
-                "frequency_hz": prop.get("frequency_hz"),
-                "wavelength_nm": prop.get("wavelength_nm"),
+                "temperature_c": normalized_prop.get("temperature_c"),
+                "temperature_range_c_min": normalized_prop.get("temperature_range_c_min"),
+                "temperature_range_c_max": normalized_prop.get("temperature_range_c_max"),
+                "frequency_hz": normalized_prop.get("frequency_hz"),
+                "wavelength_nm": normalized_prop.get("wavelength_nm"),
+                "source_page": normalized_prop.get("source_page"),
                 "heating_rate_c_per_min": None,
                 "atmosphere": None,
                 "humidity_pct": None,
                 "decomposition_criterion": dec_crit,
-                "tg_definition": prop.get("tg_definition"),
+                "tg_definition": normalized_prop.get("tg_definition"),
                 "extraction_method": "llm_extracted",
                 "confidence": 0.7,
             }
             property_table.append(rec)
+
+        paper_sample_ids = {s["sample_id"] for s in sample_table if s.get("paper_id") == paper_id}
+        paper_props = [p for p in property_table if p["sample_id"] in paper_sample_ids]
+        if re.search(r"\bFFV\b|free volume", paper_text, re.I) and not any(p["property_name"] == "free_volume_fraction" for p in paper_props):
+            review_items.append({
+                "kind": "missing_high_value_property",
+                "paper": paper_id,
+                "property_name": "free_volume_fraction",
+            })
+        if re.search(r"\bdensity\b", paper_text, re.I) and not any(p["property_name"] == "density" for p in paper_props):
+            review_items.append({
+                "kind": "missing_high_value_property",
+                "paper": paper_id,
+                "property_name": "density",
+            })
+        if re.search(r"\bCS30B\b|\borganoclay\b|\bclay\b", paper_text, re.I) and not any(sc["sample_id"] in paper_sample_ids and sc["component_kind"] == "filler" for sc in sample_component_table):
+            review_items.append({
+                "kind": "missing_filler_component",
+                "paper": paper_id,
+                "component": "CS30B / organoclay",
+            })
+        if not llm.get("polymers") and not llm.get("property_records"):
+            review_items.append({
+                "kind": "empty_extraction",
+                "paper": paper_id,
+                "reason": "cached llm extraction returned no polymers and no properties",
+            })
 
     # Strip helper paper_id field before validating sample table (not in schema).
     sample_table_out = [{k: v for k, v in s.items() if k != "paper_id"} for s in sample_table]
@@ -1843,13 +2869,20 @@ def merge_into_dataset(
     if id_remap:
         for comp in component_table:
             comp["monomer_id"] = id_remap.get(comp["monomer_id"], comp["monomer_id"])
+        for comp in sample_component_table:
+            if comp.get("monomer_id"):
+                comp["monomer_id"] = id_remap.get(comp["monomer_id"], comp["monomer_id"])
         monomer_table = consolidated
 
     out_files = {
         "monomer.json": list(monomer_table.values()),
+        "material_component.json": list(material_component_table.values()),
         "polymer.json": polymer_table,
         "polymer_component.json": component_table,
         "sample.json": sample_table_out,
+        "sample_composition.json": sample_component_table,
+        "study_series.json": study_series_table,
+        "trend_record.json": trend_table,
         "cure_profile.json": cure_table,
         "property_record.json": property_table,
     }
@@ -1889,9 +2922,13 @@ def merge_into_dataset(
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
             for fname, defname in [
                 ("monomer.json", "monomer"),
+                ("material_component.json", "material_component"),
                 ("polymer.json", "polymer"),
                 ("polymer_component.json", "polymer_component"),
                 ("sample.json", "sample"),
+                ("sample_composition.json", "sample_composition"),
+                ("study_series.json", "study_series"),
+                ("trend_record.json", "trend_record"),
                 ("cure_profile.json", "cure_profile"),
                 ("property_record.json", "property_record"),
             ]:

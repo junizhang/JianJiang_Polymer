@@ -1,32 +1,52 @@
 {
   "monomer.json": {
     "errors": [],
-    "ok": 14,
-    "total": 14
+    "ok": 15,
+    "total": 15
+  },
+  "material_component.json": {
+    "errors": [],
+    "ok": 1,
+    "total": 1
   },
   "polymer.json": {
     "errors": [],
-    "ok": 9,
-    "total": 9
+    "ok": 10,
+    "total": 10
   },
   "polymer_component.json": {
     "errors": [],
-    "ok": 30,
-    "total": 30
+    "ok": 25,
+    "total": 25
   },
   "sample.json": {
     "errors": [],
-    "ok": 23,
-    "total": 23
+    "ok": 27,
+    "total": 27
+  },
+  "sample_composition.json": {
+    "errors": [],
+    "ok": 25,
+    "total": 25
+  },
+  "study_series.json": {
+    "errors": [],
+    "ok": 5,
+    "total": 5
+  },
+  "trend_record.json": {
+    "errors": [],
+    "ok": 12,
+    "total": 12
   },
   "cure_profile.json": {
     "errors": [],
-    "ok": 23,
-    "total": 23
+    "ok": 27,
+    "total": 27
   },
   "property_record.json": {
     "errors": [],
-    "ok": 255,
-    "total": 255
+    "ok": 270,
+    "total": 270
   }
 }

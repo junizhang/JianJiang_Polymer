@@ -1,0 +1,11 @@
+[
+  {
+    "component_id": "CMP_000001",
+    "component_name": "Cloisite 30B organoclay",
+    "abbreviation": "CS30B",
+    "component_class": "nanofiller",
+    "chemical_description": "organophilic clay / organoclay",
+    "surface_treatment": "alkyl-modified clay surface",
+    "notes": "inferred_from:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
+  }
+]

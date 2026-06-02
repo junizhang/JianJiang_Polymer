@@ -1,13 +1,15 @@
 [
   {
     "monomer_id": "MON_000001",
-    "canonical_smiles": "O=C1Cc2cc(cc(C(F)(F)F)c2C(F)(F)F)C(=O)O1",
-    "inchi_key": "LKLRJFBDFISCLY-UHFFFAOYSA-N",
+    "canonical_smiles": "O=C1OC(=O)c2cc(C(c3ccc4c(c3)C(=O)OC4=O)(C(F)(F)F)C(F)(F)F)ccc21",
+    "inchi_key": "QHHKLPCQTTWFSS-UHFFFAOYSA-N",
     "common_name": "4,4'-(hexafluoroisopropylidene)diphthalic anhydride",
     "abbreviation": "6FDA",
     "cas_number": null,
     "monomer_class": "dianhydride",
-    "functional_groups": [],
+    "functional_groups": [
+      "anhydride"
+    ],
     "functionality": 2,
     "contains_fluorine": true,
     "dft_features": null,
@@ -48,8 +50,8 @@
   },
   {
     "monomer_id": "MON_000004",
-    "canonical_smiles": "Nc1ccc(C(F)(F)F)c(C(F)(F)F)c1-c1c(N)ccc(C(F)(F)F)c1C(F)(F)F",
-    "inchi_key": "PHLYGJYTUXGASW-UHFFFAOYSA-N",
+    "canonical_smiles": "Nc1ccc(C(F)(F)F)c(-c2ccc(N)cc2C(F)(F)F)c1",
+    "inchi_key": "NLOLFCMAGANTQA-UHFFFAOYSA-N",
     "common_name": "2,2'-bis(trifluoromethyl)-[1,1'-biphenyl]-4,4'-diamine",
     "abbreviation": "TFMB",
     "cas_number": null,
@@ -80,6 +82,34 @@
   },
   {
     "monomer_id": "MON_000006",
+    "canonical_smiles": "",
+    "inchi_key": "",
+    "common_name": "4,4'-dithioaniline",
+    "abbreviation": "4AD",
+    "cas_number": null,
+    "monomer_class": "diamine",
+    "functional_groups": [],
+    "functionality": 2,
+    "contains_fluorine": false,
+    "dft_features": null,
+    "notes": "stub_no_smiles:colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper"
+  },
+  {
+    "monomer_id": "MON_000007",
+    "canonical_smiles": "",
+    "inchi_key": "",
+    "common_name": "4,7,10-Trioxa-1,13-tridecanediamine",
+    "abbreviation": "TTDA",
+    "cas_number": null,
+    "monomer_class": "diamine",
+    "functional_groups": [],
+    "functionality": 2,
+    "contains_fluorine": false,
+    "dft_features": null,
+    "notes": "stub_no_smiles:colorless_polyimides_with_excellent_optical_transparency_and_self-healing_proper"
+  },
+  {
+    "monomer_id": "MON_000008",
     "canonical_smiles": "O=C1OC(=O)C2CC3CCC1C2CC1C(=O)OC(=O)C31",
     "inchi_key": "XPLHEISJFRQJTE-UHFFFAOYSA-N",
     "common_name": "4-(2,5-dioxotetrahydrofuran-3-yl)-1,2,3,4-tetrahydro-naphthalene-1,2-dicarboxylic anhydride",
@@ -95,7 +125,7 @@
     "notes": "first_seen:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
   },
   {
-    "monomer_id": "MON_000007",
+    "monomer_id": "MON_000009",
     "canonical_smiles": "CC(C)(c1ccc(Oc2ccc(N)cc2)cc1)c1ccc(Oc2ccc(N)cc2)cc1",
     "inchi_key": "KMKWGXGSGPYISJ-UHFFFAOYSA-N",
     "common_name": "2,2-bis[4-(4-aminophenoxy)phenyl]propane",
@@ -111,7 +141,7 @@
     "notes": "first_seen:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
   },
   {
-    "monomer_id": "MON_000008",
+    "monomer_id": "MON_000010",
     "canonical_smiles": "Nc1ccc(Oc2ccc(C(c3ccc(Oc4ccc(N)cc4)cc3)(C(F)(F)F)C(F)(F)F)cc2)cc1",
     "inchi_key": "HHLMWQDRYZAENA-UHFFFAOYSA-N",
     "common_name": "2,2-bis[4-(4-aminophenoxy)phenyl]hexafluoropropane",
@@ -127,7 +157,7 @@
     "notes": "first_seen:comparative_analysis_of_the_properties_of_colorless_and_transparent_polyimide_na"
   },
   {
-    "monomer_id": "MON_000009",
+    "monomer_id": "MON_000011",
     "canonical_smiles": "O=C1OC(=O)c2cc(-c3ccc4c(c3)C(=O)OC4=O)ccc21",
     "inchi_key": "WKDNYTOXBCRNPV-UHFFFAOYSA-N",
     "common_name": "3,3',4,4'-biphenyltetracarboxylic dianhydride",
@@ -143,23 +173,7 @@
     "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
   },
   {
-    "monomer_id": "MON_000010",
-    "canonical_smiles": "Nc1ccc(C(F)(F)F)c(-c2ccc(N)cc2C(F)(F)F)c1",
-    "inchi_key": "NLOLFCMAGANTQA-UHFFFAOYSA-N",
-    "common_name": "2,2'-bis(trifluoromethyl)benzidine",
-    "abbreviation": "TFMB",
-    "cas_number": null,
-    "monomer_class": "diamine",
-    "functional_groups": [
-      "amine"
-    ],
-    "functionality": 2,
-    "contains_fluorine": true,
-    "dft_features": null,
-    "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
-  },
-  {
-    "monomer_id": "MON_000011",
+    "monomer_id": "MON_000012",
     "canonical_smiles": "Nc1ccc(Oc2ccc(N)cc2)cc1",
     "inchi_key": "HLBLWEWZXPIGSM-UHFFFAOYSA-N",
     "common_name": "4,4'-oxydianiline",
@@ -175,7 +189,7 @@
     "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
   },
   {
-    "monomer_id": "MON_000012",
+    "monomer_id": "MON_000013",
     "canonical_smiles": "c1cc(C2=NCOC2)cc(C2=NCOC2)c1",
     "inchi_key": "IKXRKHFMOCTMOJ-UHFFFAOYSA-N",
     "common_name": "2,2'-(1,3-phenylene)bis(2-oxazoline)",
@@ -189,7 +203,7 @@
     "notes": "first_seen:crosslinked_colorless_polyimide_films_via_oxazole_groups_as_crosslinking_agent_p"
   },
   {
-    "monomer_id": "MON_000013",
+    "monomer_id": "MON_000014",
     "canonical_smiles": "O=C1CC(C2=CC3C(=O)OC(=O)CC3C2)C(=O)O1",
     "inchi_key": "BPAVGERXGNQCER-UHFFFAOYSA-N",
     "common_name": "bicyclo(2,2,2)oct-7-ene-2,3,5,6-tetracarboxylicdianhydride",
@@ -206,7 +220,7 @@
     "notes": "first_seen:fabrications_and_properties_of_colorless_polyimide_films_depending_on_various_he"
   },
   {
-    "monomer_id": "MON_000014",
+    "monomer_id": "MON_000015",
     "canonical_smiles": "Nc1cccc(Oc2ccc(S(=O)(=O)c3ccc(Oc4cccc(N)c4)cc3)cc2)c1",
     "inchi_key": "WCXGOVYROJJXHA-UHFFFAOYSA-N",
     "common_name": "bis[4-(3-aminophenoxy)phenyl] sulfone",
