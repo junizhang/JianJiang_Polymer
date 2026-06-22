@@ -2,12 +2,6 @@
 """
 Extract polyimide composition data from a PDF into structured JSON.
 
-V7 notes: leadership-focused key-property extraction. Built on V6 for
-batch-scale polyimide extraction, but the retained performance metrics are
-reported transmittance, Tg and CTE. V7 keeps V6 reference-library-first monomer resolution,
-SMILES role QC, ontology-driven canonicalization, and safer process-profile
-splitting.
-
 Pipeline:
 1. Extract PDF text
 2. Find image candidates by caption/context keywords
@@ -1302,6 +1296,24 @@ LLM_OUTPUT_SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "trend_records": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["variable_name", "property_name", "trend_direction"],
+                "properties": {
+                    "variable_name": {"type": "string"},
+                    "variable_unit": {"type": ["string", "null"]},
+                    "property_name": {"type": "string", "enum": ["transmittance", "Tg", "CTE", "other"]},
+                    "trend_direction": {"type": "string", "enum": ["increase", "decrease", "optimum", "mixed", "qualitative", "no_clear_trend"]},
+                    "evidence_text": {"type": ["string", "null"]},
+                    "sample_scope": {"type": ["string", "null"]},
+                    "mechanism_note": {"type": ["string", "null"]},
+                    "confidence": {"type": ["number", "null"]},
+                },
+                "additionalProperties": False,
+            },
+        },
         "extracted_monomers": {
             "type": "array",
             "items": {
@@ -1397,22 +1409,23 @@ def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
         "  extracted_monomers.\n"
         "- polymer_components.molar_ratio is for fixed backbone stoichiometry only; "
         "  filler or crosslinker wt% should not be stored there.\n"
-        "- For Tg report tg_definition; for Td report decomposition_criterion; "
-        "  for transmittance report wavelength_nm. If the paper reports λ90, use property_name "
-        "  'lambda_90' with unit 'nm'.\n"
+        "- For property_records, extract ONLY the key properties required for the final processed dataset: "
+        "  (1) reported optical transmittance, (2) Tg, and (3) CTE.\n"
+        "- For transmittance, prefer a directly reported T550 value. If T550 is absent, report only "
+        "  one directly reported representative visible-wavelength transmittance per sample, choosing "
+        "  the available wavelength closest to 550 nm (commonly T500/T450/T400/T600). Do not interpolate "
+        "  or calculate T550 from other wavelengths. Always include wavelength_nm.\n"
+        "- Do NOT extract unnecessary properties into property_records: λ0/λcutoff, YI, Haze, L*/a*/b*, "
+        "  refractive indices, birefringence, Eg, mechanical properties, ηinh, Mn/Mw/PDI, char yield, "
+        "  Tmax, FFV, density, or solubility. These may appear in the paper, but they are outside the "
+        "  final processed property scope.\n"
+        "- For Tg report tg_definition when stated; for CTE report temperature_range_c_min/max when "
+        "  stated.\n"
+        "- trend_records are required when the paper states or clearly shows a structure/composition/"
+        "  processing trend affecting transmittance, Tg, or CTE. Do not create trends for properties "
+        "  outside these three targets.\n"
         "- value_raw: the exact substring as printed (e.g. '305 °C'). Preserve comparison "
         "  operators such as < or > via value_qualifier.\n"
-        "- Optical-property tables are mandatory for transparent PI/PAI papers. Extract every "
-        "  row and every available column: λ0/λcutoff, T400/T450/T500, YI, Haze, L*, a*, b*, "
-        "  refractive index nTE/nTM/nav, birefringence Δn, and Eg. Use property_name='other' "
-        "  with property_name_raw for L*, a*, b*, Eg, nTE/nTM/nav/Δn if the schema enum does not "
-        "  provide a dedicated name.\n"
-        "- Mechanical tables are mandatory. Extract tensile_strength, modulus/tensile_modulus, "
-        "  and elongation_at_break, including value_std when reported as mean ± SD.\n"
-        "- Resin/processability tables are important. Extract inherent_viscosity, Mn, Mw, PDI, "
-        "  char yield/residual weight, Tmax, FFV, density, and solubility. For solubility, encode "
-        "  property_name='other', property_category='chemical', property_name_raw='solubility_<solvent>', "
-        "  and numeric score 2=soluble/++, 1=partial/+ or +-, 0=insoluble/-.\n"
         "- Never classify benzidine/diamine/aminophenyl/DMBZ/PDA/TFDB/FDA/MFDA/ABABP/DABA/TMPDA "
         "  monomers as dianhydrides. Never classify monomers named dianhydride/anhydride/DSDA/ODPA/PMDA/"
         "  BPADA/BPFPA/BPAF/HPMDA/HBPDA/6FDA as diamines.\n"
@@ -4701,18 +4714,6 @@ def merge_into_dataset(
 
         paper_sample_ids = {s["sample_id"] for s in sample_table if s.get("paper_id") == paper_id}
         paper_props = [p for p in property_table if p["sample_id"] in paper_sample_ids]
-        if re.search(r"\bFFV\b|free volume", paper_text, re.I) and not any(p["property_name"] == "free_volume_fraction" for p in paper_props):
-            review_items.append({
-                "kind": "missing_high_value_property",
-                "paper": paper_id,
-                "property_name": "free_volume_fraction",
-            })
-        if re.search(r"\bdensity\b", paper_text, re.I) and not any(p["property_name"] == "density" for p in paper_props):
-            review_items.append({
-                "kind": "missing_high_value_property",
-                "paper": paper_id,
-                "property_name": "density",
-            })
         if re.search(r"\bCS30B\b|\borganoclay\b|\bclay\b", paper_text, re.I) and not any(sc["sample_id"] in paper_sample_ids and sc["component_kind"] == "filler" for sc in sample_component_table):
             review_items.append({
                 "kind": "missing_filler_component",
@@ -4859,7 +4860,7 @@ _LLM_OUTPUT_SCHEMA_FULL_BASELINE = json.loads(json.dumps(LLM_OUTPUT_SCHEMA, ensu
 _llm_extract_paper_full_baseline_impl = llm_extract_paper
 
 # ---------------------------------------------------------------------------
-# V7 focused key-property extraction layer
+# V11 clean key-property extraction layer
 # ---------------------------------------------------------------------------
 # Leadership scope: keep the robust V6 chemistry/SMILES pipeline, but reduce
 # property extraction to the three decision metrics for transparent PI papers:
@@ -4869,10 +4870,10 @@ _llm_extract_paper_full_baseline_impl = llm_extract_paper
 # Other properties may appear in cached llm_raw.json from older runs, but V7
 # filters unrelated properties out before paper_summary.json and merged dataset exports.
 
-V7_TARGET_TRANS_WAVELENGTH_NM = 550.0
-V7_TARGET_PROPERTY_NAMES = {"Tg", "CTE", "transmittance"}
+V11_TARGET_TRANS_WAVELENGTH_NM = 550.0
+V11_TARGET_PROPERTY_NAMES = {"Tg", "CTE", "transmittance"}
 
-# Keep references to V6 implementations so V7 can reuse their mature batch
+# Keep references to V6 implementations so V11 can reuse their mature batch
 # normalizers before applying the focused key-property filter.
 _augment_llm_payload_from_text_v6_impl = augment_llm_payload_from_text
 _build_paper_summary_v6_impl = _build_paper_summary
@@ -4903,7 +4904,7 @@ except Exception:
 def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
                       model: Optional[str] = None, max_chars: int = 80000,
                       max_pages: int = 12) -> Dict[str, Any]:  # type: ignore[override]
-    """V7 focused LLM call: monomers/composition + T550/Tg/CTE only."""
+    """V11 focused LLM call: original processed tables + clean key properties only."""
     import base64
     client = _llm_client()
     model = model or os.getenv("MODEL_NAME", os.getenv("LLM_MODEL", "gpt-4o-mini"))
@@ -4913,7 +4914,7 @@ def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
         "Extract monomers, polymer/sample keys, backbone composition, and ONLY the key "
         "property types requested by the research leader: directly reported transmittance, Tg, and CTE.\n\n"
         f"Required output JSON schema:\n{json.dumps(LLM_OUTPUT_SCHEMA, ensure_ascii=False)}\n\n"
-        "V7 extraction rules:\n"
+        "V11 extraction rules:\n"
         "- extracted_monomers: include every monomer used in the polymer backbone. Include abbreviation, "
         "  full name, monomer_class, CAS if printed, source_page, and the best candidate SMILES if the "
         "  structure is clear. Monomer SMILES should be neutral monomer molecules, not polymer residues. "
@@ -4923,14 +4924,15 @@ def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
         "  should normally have at least one dianhydride and one diamine.\n"
         "- property_records: extract ONLY these properties:\n"
         "  1) Transmittance: property_name='transmittance', property_category='optical', unit='%'. "
-        "     Extract T550 when explicitly reported; otherwise extract any directly reported transmittance wavelength such as T500, T450, T400 or T600. "
+        "     Extract T550 when explicitly reported; otherwise extract only ONE directly reported representative transmittance wavelength per sample, choosing the available wavelength closest to 550 nm, such as T500, T450, T400 or T600. "
         "     Always set wavelength_nm and property_name_raw (for example T550, T500, T450, T400). Do NOT interpolate between wavelengths.\n"
         "  2) Tg: property_name='Tg', property_category='thermal', unit='°C'. Keep test_method and tg_definition "
         "     when DSC/DMA/TMA definitions are given.\n"
         "  3) CTE: property_name='CTE', property_category='thermal', unit='ppm/K' or 'ppm/°C'. Keep the temperature "
         "     range if printed.\n"
-        "- Do not extract Td5, haze, YI, Mn, Mw, PDI, solubility, tensile properties, density, "
-        "  FFV, refractive index, or color coordinates. T400/T450/T500/T550/T600 are allowed only as transmittance records.\n"
+        "- Do not extract Td5, λ0/λcutoff, haze, YI, Mn, Mw, PDI, solubility, tensile properties, density, "
+        "  FFV, char yield, Tmax, refractive index, Eg, or color coordinates. T400/T450/T500/T550/T600 are allowed only as candidate transmittance records, and the final output will keep one per sample.\n"
+        "- trend_records: extract accurate trends only when the paper states or clearly shows a structure/composition/processing variable affecting transmittance, Tg, or CTE. Do not create trends for removed properties.\n"
         "- value_raw must preserve the exact printed expression, including >, <, ~, ranges, and units.\n"
         "- If a sample lacks one of the three target properties, omit that property; do not guess.\n"
         f"<PAPER>\n{snippet}\n</PAPER>"
@@ -4966,7 +4968,7 @@ def llm_extract_paper(text: str, pdf_path: Optional[Path] = None,
 
 
 def _load_reference_library_v6() -> Dict[str, Dict[str, Any]]:  # type: ignore[override]
-    """V7-compatible reference-library loader.
+    """V11-compatible reference-library loader.
 
     The template file is intentionally named reference_monomer_library_template.json
     as requested.  A project may also provide reference_monomer_library.json for
@@ -5029,7 +5031,7 @@ def _extract_wavelength_from_text_v7(row: Dict[str, Any]) -> Optional[float]:
 def _canonicalize_key_property_v7(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Convert one property row into Tg, CTE or directly reported transmittance.
 
-    This version keeps the earlier V7 monomer/composition extraction logic, but
+    This version keeps the earlier monomer/composition extraction logic, but
     does not restrict optical data to T550 only. For transparent PI papers, many
     authors report T400/T450/T500 instead of T550. We keep any explicitly
     reported transmittance wavelength and do not interpolate or infer T550.
@@ -5133,7 +5135,7 @@ def _best_property_v7(records: Sequence[Dict[str, Any]], sample_key: str, prop_n
             try:
                 wl_f = float(wl)
                 has_wl = 1
-                distance = abs(wl_f - V7_TARGET_TRANS_WAVELENGTH_NM)
+                distance = abs(wl_f - V11_TARGET_TRANS_WAVELENGTH_NM)
             except Exception:
                 has_wl = 0
                 distance = 9999.0
@@ -5153,10 +5155,30 @@ def _best_property_v7(records: Sequence[Dict[str, Any]], sample_key: str, prop_n
     ), reverse=True)
     return candidates[0]
 
-def _filter_to_key_properties_v7(payload: Dict[str, Any], paper_text: str) -> None:
-    """Final V7 property scope filter: reported transmittance, Tg and CTE survive."""
-    payload["property_records"] = _dedupe_key_properties_v7(payload.get("property_records", []) or [], payload)
-    # Mark missing values for batch review, but do not invent them.
+def _filter_to_key_properties_v10(payload: Dict[str, Any], paper_text: str) -> None:
+    """Final V11 property scope filter.
+
+    Keep only the processed target properties: reported transmittance, Tg and
+    CTE. Unlike V9, do not keep every T400/T450/T500 column. For each sample,
+    keep one representative transmittance value, preferring directly reported
+    T550 and otherwise the available wavelength closest to 550 nm. Tg and CTE
+    are also reduced to one best record per sample to keep property_record.json
+    clean for screening.
+    """
+    deduped = _dedupe_key_properties_v7(payload.get("property_records", []) or [], payload)
+    final_records: List[Dict[str, Any]] = []
+    sample_keys = [_canonical_sample_key(s.get("local_sample_key")) for s in payload.get("samples", []) or []]
+    for r in deduped:
+        sk = _canonical_sample_key(r.get("local_sample_key"))
+        if sk and sk not in sample_keys:
+            sample_keys.append(sk)
+    for sk in sample_keys:
+        for pname in ("transmittance", "Tg", "CTE"):
+            best = _best_property_v7(deduped, sk, pname)
+            if best is not None:
+                final_records.append(best)
+    payload["property_records"] = final_records
+
     records = payload.get("property_records", []) or []
     for s in payload.get("samples", []) or []:
         sk = _canonical_sample_key(s.get("local_sample_key"))
@@ -5164,21 +5186,440 @@ def _filter_to_key_properties_v7(payload: Dict[str, Any], paper_text: str) -> No
         has_tg = _best_property_v7(records, sk, "Tg") is not None
         has_cte = _best_property_v7(records, sk, "CTE") is not None
         if not has_transmittance:
-            _review_item(payload, "missing_target_property_v7", sample=sk, property_name="transmittance", reason="no directly reported transmittance value was extracted")
+            _review_item(payload, "missing_target_property_v10", sample=sk, property_name="transmittance", reason="no directly reported transmittance value was extracted")
         if not has_tg:
-            _review_item(payload, "missing_target_property_v7", sample=sk, property_name="Tg", reason="not reported or not extracted")
+            _review_item(payload, "missing_target_property_v10", sample=sk, property_name="Tg", reason="not reported or not extracted")
         if not has_cte:
-            _review_item(payload, "missing_target_property_v7", sample=sk, property_name="CTE", reason="not reported or not extracted")
+            _review_item(payload, "missing_target_property_v10", sample=sk, property_name="CTE", reason="not reported or not extracted")
+
+    cleaned_trends: List[Dict[str, Any]] = []
+    for tr in payload.get("trend_records", []) or []:
+        pname = str(tr.get("property_name") or "").strip()
+        if pname in {"transmittance", "Tg", "CTE"}:
+            cleaned_trends.append(tr)
+    payload["trend_records"] = cleaned_trends
+
+
+
+# ---------------------------------------------------------------------------
+# V11 study-series and target-property trend inference
+# ---------------------------------------------------------------------------
+
+def _v11_float(value: Any) -> Optional[float]:
+    try:
+        if value in (None, ""):
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _v11_abbr_name(payload: Dict[str, Any], abbr: str) -> str:
+    ab = _canonical_sample_key(abbr)
+    for m in payload.get("extracted_monomers", []) or []:
+        if _canonical_sample_key(m.get("abbreviation")) == ab:
+            nm = str(m.get("name") or "").strip()
+            return f"{ab} ({nm})" if nm else ab
+    return ab
+
+
+def _v11_sample_rows(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    rows = []
+    seen = set()
+    for s in payload.get("samples", []) or []:
+        sk = _canonical_sample_key(s.get("local_sample_key"))
+        pk = _canonical_sample_key(s.get("local_polymer_key"))
+        if not sk or not pk or sk in seen:
+            continue
+        rows.append({"sample_key": sk, "polymer_key": pk})
+        seen.add(sk)
+    # If samples are missing but polymers exist, still infer at polymer level.
+    if not rows:
+        for p in payload.get("polymers", []) or []:
+            pk = _canonical_sample_key(p.get("local_polymer_key"))
+            if pk and pk not in seen:
+                rows.append({"sample_key": pk, "polymer_key": pk})
+                seen.add(pk)
+    return rows
+
+
+def _v11_components_by_polymer(payload: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    by_poly: Dict[str, List[Dict[str, Any]]] = {}
+    for row in payload.get("polymer_components", []) or []:
+        pk = _canonical_sample_key(row.get("local_polymer_key"))
+        ab = _canonical_sample_key(row.get("monomer_abbreviation") or row.get("monomer_abbr"))
+        role = str(row.get("role") or "other").strip()
+        ratio = _v11_float(row.get("molar_ratio"))
+        if not pk or not ab or ratio is None:
+            continue
+        by_poly.setdefault(pk, []).append({
+            "abbr": ab,
+            "role": role,
+            "ratio": ratio,
+        })
+    return by_poly
+
+
+def _v11_component_matrix(payload: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+    samples = _v11_sample_rows(payload)
+    by_poly = _v11_components_by_polymer(payload)
+    sample_components: Dict[str, List[Dict[str, Any]]] = {}
+    for s in samples:
+        sample_components[s["sample_key"]] = by_poly.get(s["polymer_key"], [])
+    return samples, sample_components
+
+
+def _v11_existing_series_keys(payload: Dict[str, Any]) -> set:
+    keys = set()
+    for s in payload.get("study_series", []) or []:
+        vn = str(s.get("variable_name") or "").strip().lower()
+        sn = str(s.get("series_name") or "").strip().lower()
+        if vn:
+            keys.add(vn)
+        if sn:
+            keys.add(sn)
+    return keys
+
+
+def _v11_add_series(payload: Dict[str, Any], series: Dict[str, Any]) -> None:
+    variable_name = str(series.get("variable_name") or "").strip()
+    if not variable_name:
+        return
+    existing = _v11_existing_series_keys(payload)
+    key = variable_name.lower()
+    norm_key = _v11_norm_series_name(variable_name) if "_v11_norm_series_name" in globals() else re.sub(r"[^a-z0-9]+", "", key)
+    existing_norm = {(_v11_norm_series_name(x) if "_v11_norm_series_name" in globals() else re.sub(r"[^a-z0-9]+", "", x)) for x in existing}
+    if key in existing or norm_key in existing_norm:
+        return
+    payload.setdefault("study_series", []).append(series)
+    _review_item(payload, "study_series_inferred_v11", variable_name=variable_name,
+                 reason="inferred from polymer_component variation across samples")
+
+
+def _v11_format_component_values(payload: Dict[str, Any], samples: List[Dict[str, Any]],
+                                 sample_components: Dict[str, List[Dict[str, Any]]],
+                                 variable_abbrs: Sequence[str]) -> str:
+    parts: List[str] = []
+    for s in samples:
+        sk = s["sample_key"]
+        comp_map = {c["abbr"]: c for c in sample_components.get(sk, [])}
+        vals = []
+        for ab in variable_abbrs:
+            ratio = comp_map.get(ab, {}).get("ratio", 0)
+            if ratio:
+                vals.append(f"{ab}:{ratio:g}")
+        if not vals:
+            # For identity series, include the variable monomer actually present.
+            variable_present = [c for c in sample_components.get(sk, []) if c.get("abbr") in variable_abbrs and c.get("ratio", 0) > 0]
+            vals = [f"{c['abbr']}:{c['ratio']:g}" for c in variable_present]
+        parts.append(f"{sk}=" + (", ".join(vals) if vals else "not specified"))
+    return "; ".join(parts)
+
+
+def _v11_infer_study_series_from_components(payload: Dict[str, Any], paper_text: str) -> None:
+    """Infer missing study_series from polymer_component variation.
+
+    This keeps the original processed table set but avoids relying entirely on
+    the LLM to notice a sample series. It is conservative: it creates a series
+    only when at least three samples/polymers share a comparable backbone table
+    and one or more monomers/ratios vary.
+    """
+    samples, sample_components = _v11_component_matrix(payload)
+    if len(samples) < 3:
+        return
+
+    all_abbrs: List[str] = []
+    role_by_abbr: Dict[str, str] = {}
+    ratios_by_abbr: Dict[str, List[float]] = {}
+    for s in samples:
+        comps = sample_components.get(s["sample_key"], [])
+        present = {c["abbr"]: c for c in comps}
+        for ab, c in present.items():
+            if ab not in all_abbrs:
+                all_abbrs.append(ab)
+            role_by_abbr.setdefault(ab, c.get("role") or "other")
+        for ab in all_abbrs:
+            ratios_by_abbr.setdefault(ab, [])
+        # Fill later after all_abbrs are known.
+    for ab in all_abbrs:
+        ratios: List[float] = []
+        for s in samples:
+            comps = {c["abbr"]: c for c in sample_components.get(s["sample_key"], [])}
+            ratios.append(float(comps.get(ab, {}).get("ratio", 0) or 0))
+        ratios_by_abbr[ab] = ratios
+
+    variable_abbrs = []
+    fixed_abbrs = []
+    for ab, ratios in ratios_by_abbr.items():
+        unique = {round(v, 8) for v in ratios}
+        if len(unique) > 1:
+            variable_abbrs.append(ab)
+        elif next(iter(unique), 0) > 0:
+            fixed_abbrs.append(ab)
+    if not variable_abbrs:
+        return
+
+    roles = {role_by_abbr.get(ab, "other") for ab in variable_abbrs}
+    variable_values_text = _v11_format_component_values(payload, samples, sample_components, variable_abbrs)
+    sample_scope = f"{samples[0]['sample_key']} -> {samples[-1]['sample_key']}"
+
+    # Case 1: classic two-component feed-ratio series, e.g. MA-DMBZ/m-TMPDA or BPADA/BPFPA.
+    if len(variable_abbrs) == 2 and len(roles) == 1:
+        a, b = variable_abbrs[0], variable_abbrs[1]
+        variable_name = f"{a}_to_{b}_ratio"
+        series_name = f"{a}/{b} composition-ratio series"
+        _v11_add_series(payload, {
+            "series_name": series_name,
+            "variable_name": variable_name,
+            "variable_kind": "composition_ratio",
+            "variable_unit": "molar_ratio",
+            "variable_values_text": variable_values_text,
+            "notes": f"V11 inferred from polymer_component.json over {sample_scope}; fixed components: {', '.join(fixed_abbrs) if fixed_abbrs else 'not resolved'}."
+        })
+        return
+
+    # Case 2: one fixed dianhydride with multiple diamine identities, or one fixed diamine with multiple dianhydrides.
+    variable_roles = sorted(roles)
+    if len(variable_roles) == 1 and variable_roles[0] in {"diamine", "dianhydride"}:
+        role = variable_roles[0]
+        variable_name = f"{role}_structure"
+        series_name = f"{role} structure series"
+        named = "; ".join(f"{ab}={_v11_abbr_name(payload, ab)}" for ab in variable_abbrs)
+        _v11_add_series(payload, {
+            "series_name": series_name,
+            "variable_name": variable_name,
+            "variable_kind": "other",
+            "variable_unit": None,
+            "variable_values_text": variable_values_text,
+            "notes": f"V11 inferred structural-identity series over {sample_scope}. Variable {role}s: {named}. Fixed components: {', '.join(fixed_abbrs) if fixed_abbrs else 'not resolved'}."
+        })
+        return
+
+    # Case 3: both dianhydride and diamine identities vary, e.g. factorial/combination tables.
+    named = "; ".join(f"{ab}={_v11_abbr_name(payload, ab)}" for ab in variable_abbrs)
+    _v11_add_series(payload, {
+        "series_name": "monomer-combination structure series",
+        "variable_name": "monomer_combination",
+        "variable_kind": "other",
+        "variable_unit": None,
+        "variable_values_text": variable_values_text,
+        "notes": f"V11 inferred from simultaneous changes in polymer components over {sample_scope}. Variable components: {named}."
+    })
+
+
+def _v11_property_value_by_sample(payload: Dict[str, Any], prop_name: str) -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for rec in payload.get("property_records", []) or []:
+        if rec.get("property_name") != prop_name:
+            continue
+        sk = _canonical_sample_key(rec.get("local_sample_key"))
+        val = _v11_float(rec.get("value_numeric"))
+        if not sk or val is None:
+            continue
+        # V11 should already keep one best row per sample; if not, keep first exact/better row.
+        if sk not in out:
+            out[sk] = rec
+        else:
+            old = out[sk]
+            if old.get("value_qualifier") != "exact" and rec.get("value_qualifier") == "exact":
+                out[sk] = rec
+    return out
+
+
+def _v11_threshold_for_property(prop_name: str) -> float:
+    if prop_name == "transmittance":
+        return 1.0
+    if prop_name == "CTE":
+        return 1.0
+    if prop_name == "Tg":
+        return 2.0
+    return 0.0
+
+
+def _v11_classify_ordered_trend(values: List[float], prop_name: str) -> str:
+    if len(values) < 3:
+        return "no_clear_trend"
+    tol = _v11_threshold_for_property(prop_name)
+    diffs = [values[i + 1] - values[i] for i in range(len(values) - 1)]
+    if max(values) - min(values) < tol:
+        return "no_clear_trend"
+    if all(d >= -tol for d in diffs) and any(d > tol for d in diffs):
+        return "increase"
+    if all(d <= tol for d in diffs) and any(d < -tol for d in diffs):
+        return "decrease"
+    # A single internal maximum/minimum is useful but not always safe to call optimum.
+    max_i = values.index(max(values))
+    min_i = values.index(min(values))
+    if 0 < max_i < len(values) - 1 or 0 < min_i < len(values) - 1:
+        return "optimum"
+    return "mixed"
+
+
+def _v11_series_axis(payload: Dict[str, Any], series: Dict[str, Any], samples: List[Dict[str, Any]],
+                     sample_components: Dict[str, List[Dict[str, Any]]]) -> Tuple[List[str], bool, Optional[str]]:
+    """Return ordered sample keys, whether the axis is numeric, and axis label."""
+    sample_keys = [s["sample_key"] for s in samples]
+    vname = str(series.get("variable_name") or "")
+    if "_to_" in vname:
+        primary = vname.split("_to_", 1)[0]
+        xs: List[Tuple[float, int, str]] = []
+        found_any = False
+        for idx, sk in enumerate(sample_keys):
+            ratio = 0.0
+            for c in sample_components.get(sk, []):
+                if c.get("abbr") == primary:
+                    ratio = float(c.get("ratio") or 0)
+                    found_any = True
+                    break
+            xs.append((ratio, idx, sk))
+        if found_any and len({x[0] for x in xs}) > 1:
+            xs.sort(key=lambda item: (item[0], item[1]))
+            return [x[2] for x in xs], True, primary
+    return sample_keys, False, None
+
+
+def _v11_same_transmittance_wavelength(records: List[Dict[str, Any]]) -> bool:
+    wavelengths = []
+    for r in records:
+        wl = _v11_float(r.get("wavelength_nm"))
+        if wl is None:
+            return False
+        wavelengths.append(round(wl, 3))
+    return len(set(wavelengths)) == 1
+
+
+def _v11_norm_series_name(text: Any) -> str:
+    s = str(text or "").lower()
+    s = s.replace("feed_ratio", "ratio")
+    s = re.sub(r"[^a-z0-9]+", "", s)
+    return s
+
+
+def _v11_trend_exists(payload: Dict[str, Any], variable_name: str, property_name: str, sample_scope: Optional[str] = None) -> bool:
+    want_var = _v11_norm_series_name(variable_name)
+    want_scope = str(sample_scope or "").strip()
+    for tr in payload.get("trend_records", []) or []:
+        if str(tr.get("property_name") or "") != property_name:
+            continue
+        got_var = _v11_norm_series_name(tr.get("variable_name"))
+        got_scope = str(tr.get("sample_scope") or "").strip()
+        if got_var == want_var:
+            return True
+        if want_scope and got_scope and want_scope == got_scope:
+            return True
+    return False
+
+
+def _v11_append_trend(payload: Dict[str, Any], trend: Dict[str, Any]) -> None:
+    variable_name = str(trend.get("variable_name") or "").strip()
+    property_name = str(trend.get("property_name") or "").strip()
+    sample_scope = trend.get("sample_scope")
+    if not variable_name or property_name not in {"transmittance", "Tg", "CTE"}:
+        return
+    if _v11_trend_exists(payload, variable_name, property_name, sample_scope):
+        return
+    payload.setdefault("trend_records", []).append(trend)
+    _review_item(payload, "trend_record_inferred_v11", variable_name=variable_name,
+                 property_name=property_name, reason="inferred from target property values across study_series")
+
+
+def _v11_infer_target_property_trends(payload: Dict[str, Any], paper_text: str) -> None:
+    """Generate conservative trend_records for transmittance, Tg and CTE.
+
+    Ordered trends are generated only for numeric composition-ratio axes. For
+    structural-identity series, V11 records a qualitative/mixed comparison only
+    when the target property range is large enough to be meaningful. It never
+    creates trends for removed properties such as density, FFV, solubility,
+    mechanical properties, YI, haze, L*a*b*, Eg, etc.
+    """
+    samples, sample_components = _v11_component_matrix(payload)
+    if len(samples) < 3:
+        return
+    if not payload.get("study_series"):
+        return
+
+    for series in payload.get("study_series", []) or []:
+        variable_name = str(series.get("variable_name") or "").strip()
+        if not variable_name:
+            continue
+        ordered_sample_keys, numeric_axis, axis_label = _v11_series_axis(payload, series, samples, sample_components)
+        sample_scope = f"{ordered_sample_keys[0]} -> {ordered_sample_keys[-1]}" if ordered_sample_keys else None
+
+        for prop_name in ("Tg", "CTE", "transmittance"):
+            by_sample = _v11_property_value_by_sample(payload, prop_name)
+            recs = [by_sample[sk] for sk in ordered_sample_keys if sk in by_sample]
+            if len(recs) < 3:
+                continue
+            if prop_name == "transmittance" and not _v11_same_transmittance_wavelength(recs):
+                # Avoid comparing T400 with T450/T500 as if they were the same optical metric.
+                continue
+            values = [float(r.get("value_numeric")) for r in recs]
+            keys = [_canonical_sample_key(r.get("local_sample_key")) for r in recs]
+            if max(values) - min(values) < _v11_threshold_for_property(prop_name):
+                continue
+
+            if numeric_axis:
+                direction = _v11_classify_ordered_trend(values, prop_name)
+                if direction == "no_clear_trend":
+                    continue
+                evidence_pairs = ", ".join(f"{k}={v:g}" for k, v in zip(keys, values))
+                axis_text = f"ordered by increasing {axis_label} content" if axis_label else "ordered by composition ratio"
+                confidence = 0.82 if direction in {"increase", "decrease"} else 0.68
+                _v11_append_trend(payload, {
+                    "variable_name": variable_name,
+                    "variable_unit": series.get("variable_unit") or "molar_ratio",
+                    "property_name": prop_name,
+                    "trend_direction": direction,
+                    "evidence_text": f"{prop_name} values across {series.get('series_name') or variable_name} ({axis_text}): {evidence_pairs}.",
+                    "sample_scope": sample_scope,
+                    "mechanism_note": series.get("notes"),
+                    "confidence": confidence,
+                })
+            else:
+                # No numeric ordering: safe qualitative comparison only.
+                min_i = values.index(min(values))
+                max_i = values.index(max(values))
+                evidence_pairs = ", ".join(f"{k}={v:g}" for k, v in zip(keys, values))
+                direction = "qualitative" if len(set(values)) > 1 else "no_clear_trend"
+                if direction == "no_clear_trend":
+                    continue
+                _v11_append_trend(payload, {
+                    "variable_name": variable_name,
+                    "variable_unit": series.get("variable_unit"),
+                    "property_name": prop_name,
+                    "trend_direction": direction,
+                    "evidence_text": f"{prop_name} varies across {series.get('series_name') or variable_name}: {evidence_pairs}; lowest={keys[min_i]} ({values[min_i]:g}), highest={keys[max_i]} ({values[max_i]:g}).",
+                    "sample_scope": sample_scope,
+                    "mechanism_note": series.get("notes"),
+                    "confidence": 0.62,
+                })
+
+
+def _v11_finalize_series_and_trends(payload: Dict[str, Any], paper_text: str) -> None:
+    _v11_infer_study_series_from_components(payload, paper_text)
+    # Keep only target-property trends, then add deterministic target trends.
+    payload["trend_records"] = [
+        tr for tr in (payload.get("trend_records", []) or [])
+        if str(tr.get("property_name") or "") in {"transmittance", "Tg", "CTE"}
+    ]
+    _v11_infer_target_property_trends(payload, paper_text)
 
 
 def augment_llm_payload_from_text(paper_id: str, payload: Dict[str, Any], paper_text: str) -> Dict[str, Any]:  # type: ignore[override]
-    """V7 wrapper: reuse V6 chemistry/process standardization, then keep only key metrics."""
+    """V11 wrapper: preserve original processed table set, clean property scope, and infer study_series/trend_records reliably."""
     payload = _augment_llm_payload_from_text_v6_impl(paper_id, payload, paper_text)
-    _filter_to_key_properties_v7(payload, paper_text)
+    _filter_to_key_properties_v10(payload, paper_text)
+    _v11_finalize_series_and_trends(payload, paper_text)
     payload["extraction_scope"] = {
-        "version": "v7_key_properties",
-        "target_properties": ["reported_transmittance", "Tg", "CTE"],
-        "note": "T550 is preferred when directly reported; otherwise directly reported T500/T450/T400/T600-style transmittance is retained without interpolation. Monomer/composition extraction is unchanged from the stronger V7 baseline.",
+        "version": "v11_series_trend_clean_processed",
+        "target_properties": ["reported_transmittance_one_per_sample", "Tg", "CTE"],
+        "required_processed_outputs": [
+            "cure_profile.json", "material_component.json", "monomer.json", "polymer.json",
+            "polymer_component.json", "property_record.json", "sample.json", "sample_composition.json",
+            "study_series.json", "trend_record.json", "README.md", "review_queue.md"
+        ],
+        "series_trend_policy": "V11 infers missing study_series from polymer_component variation and generates conservative target-property trends only for transmittance, Tg and CTE.",
+        "note": "The final processed property scope is limited to one representative directly reported transmittance per sample, Tg and CTE. Other optical/mechanical/processability properties are not retained.",
     }
     return payload
 
@@ -5188,8 +5629,8 @@ def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
                          llm_error: Optional[str]) -> Dict[str, Any]:  # type: ignore[override]
     summary = _build_paper_summary_v6_impl(paper_id, pdf_path, llm, ocsr_monomers, llm_error)
     summary["extraction_scope"] = llm.get("extraction_scope") or {
-        "version": "v7_key_properties",
-        "target_properties": ["reported_transmittance", "Tg", "CTE"],
+        "version": "v11_series_trend_clean_processed",
+        "target_properties": ["reported_transmittance_one_per_sample", "Tg", "CTE"],
     }
     # Ensure nested sample properties also only expose V7 target records.
     allowed_by_sample: Dict[str, List[Dict[str, Any]]] = {}
@@ -5204,7 +5645,7 @@ def _build_paper_summary(paper_id: str, pdf_path: Path, llm: Dict[str, Any],
 
 def merge_into_dataset(per_paper: List[Dict[str, Any]], dataset_dir: Path,
                        schema_path: Path, validate: bool) -> Dict[str, Any]:  # type: ignore[override]
-    """V7 wrapper: guarantee merged dataset exports only reported transmittance/Tg/CTE properties.
+    """V11 wrapper: guarantee merged dataset exports only one reported transmittance/Tg/CTE record per sample.
 
     The compact target-metric JSON/CSV export has been removed by request;
     the retained target metrics remain in normal property_records and nested
@@ -5214,22 +5655,22 @@ def merge_into_dataset(per_paper: List[Dict[str, Any]], dataset_dir: Path,
     for item in per_paper:
         copied = dict(item)
         llm = json.loads(json.dumps(item.get("llm", {}) or {}, ensure_ascii=False))
-        _filter_to_key_properties_v7(llm, item.get("text", "") or "")
+        _filter_to_key_properties_v10(llm, item.get("text", "") or "")
         copied["llm"] = llm
         scoped.append(copied)
     summary = _merge_into_dataset_v6_impl(scoped, dataset_dir, schema_path, validate)
-    summary["extraction_scope"] = "v7_key_properties_reported_transmittance_Tg_CTE"
+    summary["extraction_scope"] = "v10_clean_processed_reported_transmittance_Tg_CTE"
     return summary
 
 
-# Extra V7 safety wrapper for merged monomer table.  The V6 dataset merger can
-# optionally enrich unresolved monomers from PubChem; V7 keeps those only when
+# Extra V11 safety wrapper for merged monomer table.  The V6 dataset merger can
+# optionally enrich unresolved monomers from PubChem; V11 keeps those only when
 # role-QC is satisfied and flags them for review.  Curated reference entries
 # always win over PubChem/image candidates.
-_merge_into_dataset_v7_first_impl = merge_into_dataset
+_merge_into_dataset_v10_first_impl = merge_into_dataset
 
 
-def _sanitize_monomer_dataset_smiles_v7(dataset_dir: Path) -> None:
+def _sanitize_monomer_dataset_smiles_v10(dataset_dir: Path) -> None:
     path = dataset_dir / "monomer.json"
     if not path.exists():
         return
@@ -5252,7 +5693,7 @@ def _sanitize_monomer_dataset_smiles_v7(dataset_dir: Path) -> None:
                 rec["canonical_smiles"] = ref_smi
                 rec["inchi_key"] = safe_inchikey(ref_smi)
                 rec["contains_fluorine"] = detect_fluorine(ref_smi)
-                rec["notes"] = (rec.get("notes") or "") + f";v7_reference_smiles:{ref_source}"
+                rec["notes"] = (rec.get("notes") or "") + f";v10_reference_smiles:{ref_source}"
                 changed = True
             continue
         smi = canonicalize_smiles(rec.get("canonical_smiles") or "")
@@ -5264,10 +5705,10 @@ def _sanitize_monomer_dataset_smiles_v7(dataset_dir: Path) -> None:
                 rec["canonical_smiles"] = ""
                 rec["inchi_key"] = ""
                 rec["contains_fluorine"] = None
-                rec["notes"] = notes + ";v7_pubchem_smiles_removed_failed_role_qc"
+                rec["notes"] = notes + ";v10_pubchem_smiles_removed_failed_role_qc"
                 changed = True
             else:
-                rec["notes"] = notes + ";v7_pubchem_smiles_role_qc_passed_but_review_recommended"
+                rec["notes"] = notes + ";v10_pubchem_smiles_role_qc_passed_but_review_recommended"
                 changed = True
     if changed:
         path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -5275,19 +5716,471 @@ def _sanitize_monomer_dataset_smiles_v7(dataset_dir: Path) -> None:
 
 def merge_into_dataset(per_paper: List[Dict[str, Any]], dataset_dir: Path,
                        schema_path: Path, validate: bool) -> Dict[str, Any]:  # type: ignore[override]
-    summary = _merge_into_dataset_v7_first_impl(per_paper, dataset_dir, schema_path, validate)
-    _sanitize_monomer_dataset_smiles_v7(dataset_dir)
+    summary = _merge_into_dataset_v10_first_impl(per_paper, dataset_dir, schema_path, validate)
+    _sanitize_monomer_dataset_smiles_v10(dataset_dir)
+    return summary
+
+
+
+
+# ---------------------------------------------------------------------------
+# V12 targeted repair layer
+# ---------------------------------------------------------------------------
+# V12 intentionally changes only the items requested by the user:
+#   1) repair ADOM e71283 paper-local M1/M2/M3 diamine composition;
+#   2) recognize fluorene (芴) as a hydrocarbon scaffold, not fluorine, and add
+#      curated BPFPA SMILES;
+#   3) remove review-queue noise for properties no longer retained (density,
+#      eta_inh/inherent viscosity, etc.);
+#   4) remove duplicate study_series / trend_record entries caused by inverse
+#      composition-ratio names.
+
+_V12_BPFPA_SMILES = (
+    "O=C1OC(=O)c2cc(Oc3ccc(C4(c5ccc(Oc6ccc7c(c6)C(=O)OC7=O)cc5)"
+    "c5ccccc5-c5ccccc54)cc3)ccc21"
+)
+_V12_FDA_SMILES = "Nc1ccc(C2(c3ccc(N)cc3)c3ccccc3-c3ccccc32)cc1"
+
+# Extend the curated reference seed before the reference loader is used.
+REFERENCE_MONOMER_SMILES.update({
+    "BPFPA": _V12_BPFPA_SMILES,
+    # M1 is only repaired inside ADOM e71283; this global alias is deliberately
+    # not used for arbitrary paper-local M1 labels.
+})
+_REFERENCE_LIBRARY_CACHE_V6 = None
+
+
+def _v12_is_adom_71283(payload: Dict[str, Any], paper_text: str) -> bool:
+    return _paper_identity_matches(
+        payload,
+        paper_text,
+        ("10.1002/adom.71283", "adom.71283"),
+        ("fluorine-free colorless polyimides", "dye-based photolithography"),
+    )
+
+
+def _v12_set_monomer(payload: Dict[str, Any], abbreviation: str, name: str,
+                     monomer_class: str, smiles: Optional[str] = None,
+                     smiles_source: str = "unknown", source_page: Optional[int] = None) -> None:
+    abbreviation = _canonical_sample_key(abbreviation)
+    target = None
+    for row in payload.get("extracted_monomers", []) or []:
+        if _canonical_sample_key(row.get("abbreviation")) == abbreviation:
+            target = row
+            break
+    if target is None:
+        target = {
+            "abbreviation": abbreviation,
+            "name": name,
+            "monomer_class": monomer_class,
+            "cas_number": None,
+            "smiles": None,
+            "smiles_source": "unknown",
+            "source_page": source_page,
+        }
+        payload.setdefault("extracted_monomers", []).append(target)
+    target["abbreviation"] = abbreviation
+    target["name"] = name
+    target["monomer_class"] = monomer_class
+    target.setdefault("cas_number", None)
+    if source_page is not None:
+        target["source_page"] = source_page
+    if smiles:
+        smi = canonicalize_smiles(smiles) or smiles
+        target["smiles"] = smi
+        target["smiles_source"] = smiles_source
+    else:
+        # Do not keep old wrong image/PubChem SMILES for paper-local M2/M3.
+        if abbreviation in {"M2", "M3"}:
+            target["smiles"] = None
+            target["smiles_source"] = "unknown"
+
+
+def _v12_dedupe_extracted_monomers(payload: Dict[str, Any]) -> None:
+    rows = payload.get("extracted_monomers", []) or []
+    out: List[Dict[str, Any]] = []
+    by_abbr: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        abbr = _canonical_sample_key(row.get("abbreviation"))
+        if not abbr:
+            continue
+        row["abbreviation"] = abbr
+        existing = by_abbr.get(abbr)
+        if existing is None:
+            by_abbr[abbr] = row
+            out.append(row)
+            continue
+        # Prefer the record with a valid SMILES, then the longer/more explicit name.
+        if row.get("smiles") and not existing.get("smiles"):
+            existing.update(row)
+        elif not existing.get("name") or len(str(row.get("name") or "")) > len(str(existing.get("name") or "")):
+            for k in ("name", "monomer_class", "source_page"):
+                if row.get(k) not in (None, ""):
+                    existing[k] = row[k]
+    payload["extracted_monomers"] = out
+
+
+def _v12_replace_polymer_components(payload: Dict[str, Any], polymer_key: str,
+                                     components: Sequence[Tuple[str, str, float]]) -> None:
+    pk = _canonical_sample_key(polymer_key)
+    kept = []
+    for row in payload.get("polymer_components", []) or []:
+        if _canonical_sample_key(row.get("local_polymer_key")) != pk:
+            kept.append(row)
+    payload["polymer_components"] = kept
+    for abbr, role, ratio in components:
+        _upsert_component(payload, pk, abbr, role, float(ratio), "v12_adom_71283_scheme_repair")
+
+
+def _v12_repair_adom_71283_m1_m2_m3(payload: Dict[str, Any], paper_text: str) -> None:
+    """Repair ADOM e71283 paper-local diamine series.
+
+    The earlier rules sometimes converted M2 into a dianhydride and reused M1
+    for PI-3. For this paper, the chemically safe structural relationship is:
+      PI-1 = ODPA + M1, PI-2 = ODPA + M2, PI-3 = ODPA + M3.
+    Only M1 has a confident common-name identity from the extracted text; M2/M3
+    are kept as paper-local diamines with unresolved SMILES rather than guessed.
+    """
+    if not _v12_is_adom_71283(payload, paper_text):
+        return
+
+    _v12_set_monomer(
+        payload, "ODPA",
+        "4,4'-(oxydi-1,4-phenylene)bis(phthalic anhydride)",
+        "dianhydride", REFERENCE_MONOMER_SMILES.get("ODPA"), "reference", 2,
+    )
+    _v12_set_monomer(
+        payload, "M1", "9,9-bis(4-aminophenyl)fluorene",
+        "diamine", _V12_FDA_SMILES, "v12_adom_71283_scheme_repair", 2,
+    )
+    _v12_set_monomer(
+        payload, "M2", "paper-local diamine M2 (structure shown in Scheme/Figure)",
+        "diamine", None, "unknown", 2,
+    )
+    _v12_set_monomer(
+        payload, "M3", "paper-local diamine M3 (structure shown in Scheme/Figure)",
+        "diamine", None, "unknown", 2,
+    )
+    _v12_dedupe_extracted_monomers(payload)
+
+    for sample in ("PI-1", "PI-2", "PI-3"):
+        _upsert_polymer(payload, sample, "polyimide", False, "chemical")
+    _v12_replace_polymer_components(payload, "PI-1", [("M1", "diamine", 1), ("ODPA", "dianhydride", 1)])
+    _v12_replace_polymer_components(payload, "PI-2", [("M2", "diamine", 1), ("ODPA", "dianhydride", 1)])
+    _v12_replace_polymer_components(payload, "PI-3", [("M3", "diamine", 1), ("ODPA", "dianhydride", 1)])
+
+    _review_item(payload, "v12_adom_71283_composition_repaired",
+                 mapping="PI-1=ODPA+M1; PI-2=ODPA+M2; PI-3=ODPA+M3")
+
+
+_V12_ABBR_ALIASES = {
+    "2,2-DMBZ": "2,2'-DMBZ",
+    "2,2′-DMBZ": "2,2'-DMBZ",
+    "3,3-DMBZ": "3,3'-DMBZ",
+    "3,3′-DMBZ": "3,3'-DMBZ",
+}
+_V12_ALIAS_NAMES = {
+    "2,2'-DMBZ": "2,2'-dimethylbenzidine",
+    "3,3'-DMBZ": "3,3'-dimethylbenzidine",
+}
+
+
+def _v12_normalize_abbr(abbr: Any) -> str:
+    a = _canonical_sample_key(abbr)
+    return _V12_ABBR_ALIASES.get(a, a)
+
+
+def _v12_normalize_monomer_aliases(payload: Dict[str, Any]) -> None:
+    for row in payload.get("extracted_monomers", []) or []:
+        old = _canonical_sample_key(row.get("abbreviation"))
+        new = _v12_normalize_abbr(old)
+        if new != old:
+            row["abbreviation"] = new
+            if new in _V12_ALIAS_NAMES:
+                row["name"] = _V12_ALIAS_NAMES[new]
+    for row in payload.get("polymer_components", []) or []:
+        ab = row.get("monomer_abbreviation") or row.get("monomer_abbr")
+        new = _v12_normalize_abbr(ab)
+        if "monomer_abbreviation" in row:
+            row["monomer_abbreviation"] = new
+        elif "monomer_abbr" in row:
+            row["monomer_abbr"] = new
+
+    _v12_dedupe_extracted_monomers(payload)
+
+    # Deduplicate components created solely by alias differences; keep one ratio
+    # (max, not sum) because 2,2-DMBZ and 2,2'-DMBZ are the same monomer label.
+    out: List[Dict[str, Any]] = []
+    index: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    for row in payload.get("polymer_components", []) or []:
+        pk = _canonical_sample_key(row.get("local_polymer_key"))
+        ab = _v12_normalize_abbr(row.get("monomer_abbreviation") or row.get("monomer_abbr"))
+        role = str(row.get("role") or "")
+        row["local_polymer_key"] = pk
+        row["monomer_abbreviation"] = ab
+        key = (pk, ab, role)
+        old = index.get(key)
+        if old is None:
+            index[key] = row
+            out.append(row)
+        else:
+            old["molar_ratio"] = max(float(old.get("molar_ratio") or 0), float(row.get("molar_ratio") or 0))
+    payload["polymer_components"] = out
+
+
+def _v12_apply_bpfpa_reference(payload: Dict[str, Any]) -> None:
+    for row in payload.get("extracted_monomers", []) or []:
+        ab = _canonical_sample_key(row.get("abbreviation"))
+        name_l = str(row.get("name") or "").lower()
+        if ab == "BPFPA" or "bis[4-(3,4-dicarboxyphenoxy)phenyl]fluorene" in name_l:
+            smi = canonicalize_smiles(_V12_BPFPA_SMILES) or _V12_BPFPA_SMILES
+            row["abbreviation"] = "BPFPA"
+            row["name"] = "9,9-bis[4-(3,4-dicarboxyphenoxy)phenyl]fluorene dianhydride"
+            row["monomer_class"] = "dianhydride"
+            row["smiles"] = smi
+            row["smiles_source"] = "v12_reference_fluorene_not_fluorine"
+    _v12_dedupe_extracted_monomers(payload)
+
+
+def _v12_clean_review_items(payload: Dict[str, Any]) -> None:
+    removed_kinds = {
+        "inherent_viscosity_property_added_from_sample",
+        "missing_high_value_property",
+    }
+    removed_property_names = {
+        "density", "free_volume_fraction", "FFV", "inherent_viscosity", "ηinh",
+        "Mn", "Mw", "PDI", "Tmax", "solubility", "yellow_index", "haze",
+        "cie_L", "cie_a", "cie_b", "energy_gap", "refractive_index",
+        "refractive_index_TE", "refractive_index_TM", "refractive_index_avg",
+        "birefringence", "tensile_strength", "modulus", "elongation_at_break",
+        "char_yield_800c_n2", "residual_weight_600c", "residual_weight_730c",
+        "residual_weight_750c",
+    }
+    out: List[Dict[str, Any]] = []
+    for item in payload.get("review_items", []) or []:
+        kind = item.get("kind")
+        pname = str(item.get("property_name") or item.get("property_name_raw") or "")
+        if kind in removed_kinds:
+            continue
+        if kind == "property_value_repaired" and pname in removed_property_names:
+            continue
+        # Remove stale ADOM 001 warnings that are resolved by the V12 composition repair.
+        if kind == "duplicate_polymer_composition" and {item.get("polymer_a"), item.get("polymer_b")} == {"PI-1", "PI-3"}:
+            continue
+        if kind == "missing_diamine_component" and _canonical_sample_key(item.get("local_polymer_key")) == "PI-2":
+            continue
+        if kind == "component_role_protected_by_monomer_identity" and _canonical_sample_key(item.get("monomer_abbreviation")) == "M2":
+            continue
+        out.append(item)
+    payload["review_items"] = out
+
+
+def _v12_parse_ratio_variable(var: Any) -> Optional[frozenset]:
+    v = str(var or "").strip()
+    m = re.match(r"^(.+?)_to_(.+?)(?:_feed)?_ratio$", v)
+    if not m:
+        return None
+    return frozenset([_canonical_sample_key(m.group(1)), _canonical_sample_key(m.group(2))])
+
+
+def _v12_series_preference(row: Dict[str, Any]) -> Tuple[int, int, int]:
+    var = str(row.get("variable_name") or "")
+    notes = str(row.get("notes") or "")
+    return (
+        3 if "feed_ratio" in var else 0,
+        1 if "V11 inferred" not in notes else 0,
+        len(str(row.get("variable_values_text") or "")),
+    )
+
+
+def _v12_dedupe_study_series_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    index: Dict[Tuple[str, Any], int] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        pair = _v12_parse_ratio_variable(row.get("variable_name"))
+        if pair:
+            key = ("ratio_pair", tuple(sorted(pair)))
+        else:
+            key = ("var", _v11_norm_series_name(row.get("variable_name")) if "_v11_norm_series_name" in globals() else str(row.get("variable_name") or "").lower())
+        if key not in index:
+            index[key] = len(out)
+            out.append(row)
+        else:
+            j = index[key]
+            if _v12_series_preference(row) > _v12_series_preference(out[j]):
+                out[j] = row
+    return out
+
+
+def _v12_dedupe_trend_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # First remove obvious inverse duplicates.  For the 002 MA-DMBZ case, keep
+    # the hand-written MA-DMBZ_content Tg/CTE trends and one feed-ratio optical trend.
+    has_madmbz_manual = {
+        str(r.get("property_name")) for r in rows
+        if str(r.get("variable_name")) == "MA-DMBZ_content"
+    }
+    out: List[Dict[str, Any]] = []
+    index: Dict[Tuple[Any, ...], int] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        var = str(row.get("variable_name") or "")
+        prop = str(row.get("property_name") or "")
+        if prop in has_madmbz_manual and var in {"m-TMPDA_to_MA-DMBZ_ratio", "MA-DMBZ_to_m-TMPDA_feed_ratio"} and prop in {"Tg", "CTE"}:
+            continue
+        pair = _v12_parse_ratio_variable(var)
+        if pair:
+            k_var: Any = ("ratio_pair", tuple(sorted(pair)))
+        else:
+            k_var = ("var", _v11_norm_series_name(var) if "_v11_norm_series_name" in globals() else var.lower())
+        key = (str(row.get("paper_id") or ""), prop, k_var, str(row.get("sample_scope") or ""))
+        if key not in index:
+            index[key] = len(out)
+            out.append(row)
+            continue
+        j = index[key]
+        old = out[j]
+        def score(r: Dict[str, Any]) -> Tuple[float, int, int]:
+            try:
+                conf = float(r.get("confidence") or 0)
+            except Exception:
+                conf = 0.0
+            v = str(r.get("variable_name") or "")
+            return (conf, 1 if "feed_ratio" in v else 0, len(str(r.get("evidence_text") or "")))
+        if score(row) > score(old):
+            out[j] = row
+    return out
+
+
+def _v12_finalize_series_and_trends(payload: Dict[str, Any]) -> None:
+    payload["study_series"] = _v12_dedupe_study_series_rows(payload.get("study_series", []) or [])
+    payload["trend_records"] = _v12_dedupe_trend_rows(payload.get("trend_records", []) or [])
+    _v12_clean_review_items(payload)
+
+
+# Capture V11 implementations and override only the requested V12 behavior.
+_augment_llm_payload_from_text_v11_impl = augment_llm_payload_from_text
+_merge_into_dataset_v11_impl = merge_into_dataset
+
+
+def augment_llm_payload_from_text(paper_id: str, payload: Dict[str, Any], paper_text: str) -> Dict[str, Any]:  # type: ignore[override]
+    # Rebuild from the V6 mature chemistry/table recovery layer, then apply the
+    # V10/V11 target-property and series/trend logic after V12 repairs.
+    payload = _augment_llm_payload_from_text_v6_impl(paper_id, payload, paper_text)
+    _filter_to_key_properties_v10(payload, paper_text)
+    _v12_apply_bpfpa_reference(payload)
+    _v12_repair_adom_71283_m1_m2_m3(payload, paper_text)
+    _v12_normalize_monomer_aliases(payload)
+    _v11_finalize_series_and_trends(payload, paper_text)
+    _v12_finalize_series_and_trends(payload)
+    payload["extraction_scope"] = {
+        "version": "v12_targeted_repair_monomer_fluorene_review_series",
+        "target_properties": ["reported_transmittance_one_per_sample", "Tg", "CTE"],
+        "required_processed_outputs": [
+            "cure_profile.json", "material_component.json", "monomer.json", "polymer.json",
+            "polymer_component.json", "property_record.json", "sample.json", "sample_composition.json",
+            "study_series.json", "trend_record.json", "README.md", "review_queue.md"
+        ],
+        "v12_repairs": [
+            "ADOM e71283 PI-1/PI-2/PI-3 composition repaired as ODPA+M1/M2/M3 diamines",
+            "BPFPA fluorene scaffold recognized as non-fluorinated and resolved by curated SMILES",
+            "review_queue noise for removed properties such as density and inherent viscosity filtered",
+            "duplicate inverse study_series/trend_record entries filtered",
+        ],
+    }
+    return payload
+
+
+def _v12_postprocess_monomer_json(dataset_dir: Path) -> None:
+    path = dataset_dir / "monomer.json"
+    if not path.exists():
+        return
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    if not isinstance(rows, list):
+        return
+    changed = False
+    bpfpa_smi = canonicalize_smiles(_V12_BPFPA_SMILES) or _V12_BPFPA_SMILES
+    for rec in rows:
+        if not isinstance(rec, dict):
+            continue
+        abbr = _canonical_sample_key(rec.get("abbreviation"))
+        name_l = str(rec.get("common_name") or "").lower()
+        if abbr == "BPFPA" or "bis[4-(3,4-dicarboxyphenoxy)phenyl]fluorene" in name_l:
+            rec["abbreviation"] = "BPFPA"
+            rec["common_name"] = "9,9-bis[4-(3,4-dicarboxyphenoxy)phenyl]fluorene dianhydride"
+            rec["monomer_class"] = "dianhydride"
+            rec["canonical_smiles"] = bpfpa_smi
+            rec["inchi_key"] = safe_inchikey(bpfpa_smi)
+            rec["functional_groups"] = infer_functional_groups(bpfpa_smi)
+            rec["functionality"] = infer_functionality(bpfpa_smi, "dianhydride")
+            rec["contains_fluorine"] = False
+            rec["notes"] = (rec.get("notes") or "") + ";v12_bpfpa_fluorene_not_fluorine_reference"
+            changed = True
+        elif "fluorene" in name_l and not any(tok in name_l for tok in ("fluoro", "trifluoro", "hexafluoro", "perfluoro", "cf3")):
+            # Fluorene/芴 is C13H10 and contains no fluorine atom.
+            if rec.get("canonical_smiles"):
+                rec["contains_fluorine"] = bool(detect_fluorine(rec.get("canonical_smiles") or ""))
+            else:
+                rec["contains_fluorine"] = False
+            changed = True
+    if changed:
+        path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _v12_filter_review_queue_file(dataset_dir: Path) -> None:
+    path = dataset_dir / "review_queue.md"
+    if not path.exists():
+        return
+    lines = path.read_text(encoding="utf-8").splitlines()
+    out = []
+    skip_terms = [
+        "inherent_viscosity_property_added_from_sample", "ηinh", "inherent_viscosity",
+        "property_name\": \"density\"", "property_name': 'density'",
+        "missing_high_value_property", "free_volume_fraction", "FFV", "solubility",
+        "yellow_index", "haze", "cie_L", "cie_a", "cie_b", "energy_gap",
+        "tensile_strength", "elongation_at_break", "modulus", "Tmax",
+    ]
+    removed = 0
+    for line in lines:
+        if line.startswith("- **") and any(term in line for term in skip_terms):
+            removed += 1
+            continue
+        out.append(line)
+    if removed:
+        # Update Total items if present.
+        new_lines = []
+        for line in out:
+            if line.startswith("Total items:"):
+                try:
+                    old = int(re.findall(r"\d+", line)[0])
+                    line = f"Total items: {max(0, old - removed)}"
+                except Exception:
+                    pass
+            new_lines.append(line)
+        path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+
+def merge_into_dataset(per_paper: List[Dict[str, Any]], dataset_dir: Path,
+                       schema_path: Path, validate: bool) -> Dict[str, Any]:  # type: ignore[override]
+    summary = _merge_into_dataset_v11_impl(per_paper, dataset_dir, schema_path, validate)
+    _v12_postprocess_monomer_json(dataset_dir)
+    _v12_filter_review_queue_file(dataset_dir)
     return summary
 
 
 # ---------------------------------------------------------------------------
-# V7 final LLM policy: keep full monomer/SMILES/composition extraction
+# V11 final LLM policy: keep full monomer/SMILES/composition extraction
 # ---------------------------------------------------------------------------
-# The focused V7 layer above filters the *output properties* to reported
+# The V11 clean-property layer above filters the *output properties* to reported
 # transmittance/Tg/CTE.  It should not narrow the LLM's chemistry task, because
 # that can reduce extraction of paper-local monomers such as M1/M2.  Therefore
 # we restore the full baseline prompt/schema and call the original full-paper
-# extractor captured before the focused layer was defined.
+# extractor captured before the clean-property layer was defined.
 LLM_SYSTEM_PROMPT = _LLM_SYSTEM_PROMPT_FULL_BASELINE
 LLM_OUTPUT_SCHEMA = json.loads(json.dumps(_LLM_OUTPUT_SCHEMA_FULL_BASELINE, ensure_ascii=False))
 
